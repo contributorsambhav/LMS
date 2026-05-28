@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: HSL(220, 20%, 97%);
+    --foreground: HSL(224, 71.4%, 4.1%);
+    --card: HSL(0, 0%, 100%);
+    --card-foreground: HSL(224, 71.4%, 4.1%);
+    --popover: HSL(0, 0%, 100%);
+    --popover-foreground: HSL(224, 71.4%, 4.1%);
+    --primary: HSL(262.1, 83.3%, 57.8%);
+    --primary-foreground: HSL(210, 20%, 98%);
+    --secondary: HSL(220, 14.3%, 95.9%);
+    --secondary-foreground: HSL(220.9, 39.3%, 11%);
+    --muted: HSL(220, 14.3%, 95.9%);
+    --muted-foreground: HSL(220, 8.9%, 46.1%);
+    --accent: HSL(262.1, 83.3%, 95%);
+    --accent-foreground: HSL(262.1, 83.3%, 30%);
+    --destructive: HSL(0, 84.2%, 60.2%);
+    --destructive-foreground: HSL(210, 20%, 98%);
+    --border: HSL(220, 13%, 91%);
+    --input: HSL(220, 13%, 91%);
+    --ring: HSL(262.1, 83.3%, 57.8%);
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: HSL(224, 71.4%, 4.1%);
+    --foreground: HSL(210, 20%, 98%);
+    --card: HSL(224, 71.4%, 7%);
+    --card-foreground: HSL(210, 20%, 98%);
+    --popover: HSL(224, 71.4%, 4.1%);
+    --popover-foreground: HSL(210, 20%, 98%);
+    --primary: HSL(263.4, 70%, 50.4%);
+    --primary-foreground: HSL(210, 20%, 98%);
+    --secondary: HSL(215, 27.9%, 16.9%);
+    --secondary-foreground: HSL(210, 20%, 98%);
+    --muted: HSL(215, 27.9%, 16.9%);
+    --muted-foreground: HSL(217.9, 10.6%, 64.9%);
+    --accent: HSL(263.4, 70%, 15%);
+    --accent-foreground: HSL(210, 20%, 98%);
+    --destructive: HSL(0, 62.8%, 30.6%);
+    --destructive-foreground: HSL(210, 20%, 98%);
+    --border: HSL(215, 27.9%, 16.9%);
+    --input: HSL(215, 27.9%, 16.9%);
+    --ring: HSL(263.4, 70%, 50.4%);
+  }
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Glassmorphism custom classes */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Gradient mesh background */
+.mesh-bg {
+  background-color: #dfdbe5;
+  background-image: radial-gradient(at 18% 99%, #7e22ce 0px, transparent 50%),
+                    radial-gradient(at 97% 8%, #3b82f6 0px, transparent 50%),
+                    radial-gradient(at 97% 95%, #ec4899 0px, transparent 50%),
+                    radial-gradient(at 5% 5%, #a855f7 0px, transparent 50%);
+}
+
+.dark .mesh-bg {
+  background-color: #0b0717;
+  background-image: radial-gradient(at 18% 99%, #3b0764 0px, transparent 50%),
+                    radial-gradient(at 97% 8%, #1d4ed8 0px, transparent 50%),
+                    radial-gradient(at 97% 95%, #701a75 0px, transparent 50%),
+                    radial-gradient(at 5% 5%, #581c87 0px, transparent 50%);
+}
