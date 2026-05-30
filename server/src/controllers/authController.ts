@@ -345,7 +345,7 @@ export const superCodeLogin = async (req: Request, res: Response) => {
 
 export const getActiveInstitutes = async (req: Request, res: Response) => {
   try {
-    const activeInstitutes = await Institute.find({ status: "Active" }, "_id name brandName address");
+    const activeInstitutes = await Institute.find({ status: "Active" }, "_id name brandName legalName address");
     return res.status(200).json(activeInstitutes);
   } catch (error: any) {
     console.error("Get active institutes error:", error);
@@ -367,19 +367,91 @@ export const updateInstitute = async (req: any, res: Response) => {
 
     // Set instituteId or clear it if it's null/'none'
     if (!instituteId || instituteId === 'none') {
-      user.instituteId = undefined;
+      user.instituteId = null;
       user.status = 'Approved'; // Independent users are auto-approved
+      if (user.role === 'Faculty') {
+        user.affiliationStatus = 'Unaffiliated';
+      }
     } else {
       user.instituteId = instituteId;
-      user.status = 'Pending'; // Needs new approval from new institute
+      if (user.role === 'Faculty') {
+        user.affiliationStatus = 'Pending';
+        user.status = 'Approved'; // Faculty account remains active but affiliation is pending
+      } else {
+        user.status = 'Pending'; // Student needs new approval from new institute
+      }
     }
 
     await user.save();
 
-    res.status(200).json({ message: "Affiliated institute updated.", instituteId: user.instituteId, status: user.status });
+    res.status(200).json({ 
+      message: "Affiliated institute updated.", 
+      instituteId: user.instituteId, 
+      status: user.status,
+      affiliationStatus: user.affiliationStatus 
+    });
   } catch (error: any) {
     console.error("updateInstitute error:", error);
     res.status(500).json({ message: "Failed to update institute." });
+  }
+};
+
+export const getPendingFacultyAffiliations = async (req: any, res: Response) => {
+  try {
+    const adminId = req.user.id;
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== "InstituteAdmin") {
+      return res.status(403).json({ message: "Access denied: Only Institute Admins can view pending faculty." });
+    }
+
+    const pendingFaculty = await User.find({
+      instituteId: admin.instituteId,
+      role: "Faculty",
+      affiliationStatus: "Pending"
+    }).select("name email phoneNumber address status affiliationStatus");
+
+    return res.status(200).json(pendingFaculty);
+  } catch (error: any) {
+    console.error("getPendingFacultyAffiliations error:", error);
+    return res.status(500).json({ message: "Failed to retrieve pending faculty affiliations." });
+  }
+};
+
+export const updateFacultyAffiliation = async (req: any, res: Response) => {
+  try {
+    const adminId = req.user.id;
+    const { facultyId, action } = req.body; // action: "approve" | "reject"
+
+    const admin = await User.findById(adminId);
+    if (!admin || admin.role !== "InstituteAdmin") {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    if (!facultyId || !action || !["approve", "reject"].includes(action)) {
+      return res.status(400).json({ message: "Invalid parameters." });
+    }
+
+    const faculty = await User.findById(facultyId);
+    if (!faculty || faculty.role !== "Faculty" || faculty.instituteId?.toString() !== admin.instituteId?.toString()) {
+      return res.status(404).json({ message: "Faculty member not found under your institute." });
+    }
+
+    if (action === "approve") {
+      faculty.affiliationStatus = "Approved";
+    } else {
+      faculty.affiliationStatus = "Unaffiliated";
+      faculty.instituteId = null;
+    }
+
+    await faculty.save();
+
+    return res.status(200).json({
+      message: `Faculty affiliation request has been successfully ${action === "approve" ? "approved" : "rejected"}.`,
+      faculty
+    });
+  } catch (error: any) {
+    console.error("updateFacultyAffiliation error:", error);
+    return res.status(500).json({ message: "Failed to update faculty affiliation." });
   }
 };
 

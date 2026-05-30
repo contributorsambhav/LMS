@@ -1,11 +1,12 @@
+import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { Course } from "../models/Course";
 import { Enrollment } from "../models/Enrollment";
 import { Institute } from "../models/Institute";
-import { Response } from "express";
 import { User } from "../models/User";
 import { Verification } from "../models/Verification";
 import { Plan } from "../models/Plan";
+import mongoose from "mongoose";
 
 export const getInstitutes = async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -13,11 +14,9 @@ export const getInstitutes = async (req: AuthenticatedRequest, res: Response) =>
 
     const enrichedInstitutes = await Promise.all(
       institutes.map(async (inst) => {
-        // Find course IDs
         const courses = await Course.find({ instituteId: inst._id }, "_id");
         const courseIds = courses.map(c => c._id);
 
-        // Count direct users under this institute if any, and enrollments
         const courseCount = courseIds.length;
         const facultyCount = await Enrollment.countDocuments({
           courseId: { $in: courseIds },
@@ -35,7 +34,7 @@ export const getInstitutes = async (req: AuthenticatedRequest, res: Response) =>
           status: inst.status || "Pending",
           billingPlan: inst.billingPlan || "Basic",
           createdAt: inst.createdAt,
-          admin: inst.adminId, // Will contain populated user details
+          admin: inst.adminId,
           usage: {
             courses: courseCount,
             faculty: facultyCount,
@@ -55,7 +54,7 @@ export const getInstitutes = async (req: AuthenticatedRequest, res: Response) =>
 export const updateInstituteStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // "Active" | "Suspended"
+    const { status } = req.body;
 
     if (!status || !["Active", "Suspended"].includes(status)) {
       return res.status(400).json({ message: "Invalid status state specified." });
@@ -66,12 +65,9 @@ export const updateInstituteStatus = async (req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ message: "Institute not found." });
     }
 
-    // Update institute status
     institute.status = status;
     await institute.save();
 
-    // Also update associated InstituteAdmin status
-    // "Active" maps to user status "Approved", "Suspended" maps to user status "Suspended"
     const userStatus = status === "Active" ? "Approved" : "Suspended";
     const adminUser = await User.findById(institute.adminId);
     if (adminUser) {
@@ -92,7 +88,7 @@ export const updateInstituteStatus = async (req: AuthenticatedRequest, res: Resp
 export const updateInstituteBilling = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { billingPlan } = req.body; // "Basic" | "Premium" | "Enterprise" | "Custom"
+    const { billingPlan } = req.body;
 
     const allowedPlans = ["Basic", "Premium", "Enterprise", "Custom"];
     if (!billingPlan || !allowedPlans.includes(billingPlan)) {
@@ -155,7 +151,7 @@ export const approveVerification = async (req: AuthenticatedRequest, res: Respon
     await adminUser.save();
 
     verification.status = "Approved";
-    verification.approvedBy = req.user?.id ?? null;
+    verification.approvedBy = req.user?.id ? (new mongoose.Types.ObjectId(req.user.id) as any) : null;
     verification.approvedAt = new Date();
     await verification.save();
 
@@ -191,7 +187,7 @@ export const rejectVerification = async (req: AuthenticatedRequest, res: Respons
     await adminUser.save();
 
     verification.status = "Rejected";
-    verification.approvedBy = req.user?.id ?? null;
+    verification.approvedBy = req.user?.id ? (new mongoose.Types.ObjectId(req.user.id) as any) : null;
     verification.approvedAt = new Date();
     await verification.save();
 
@@ -202,7 +198,7 @@ export const rejectVerification = async (req: AuthenticatedRequest, res: Respons
   }
 };
 
-export const deleteInstitute = async (req: Request, res: Response) => {
+export const deleteInstitute = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -211,33 +207,28 @@ export const deleteInstitute = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Institute not found." });
     }
 
-    // Delete associated users (except SuperAdmin, which isn't linked to an institute anyway)
     await User.deleteMany({ instituteId: id });
-    
-    // Delete associated verifications
     await Verification.deleteMany({ instituteId: id });
-
-    // Finally delete the institute
     await Institute.findByIdAndDelete(id);
 
-    res.status(200).json({ message: "Tenant and all associated users have been permanently deleted." });
+    return res.status(200).json({ message: "Tenant and all associated users have been permanently deleted." });
   } catch (error) {
     console.error("Error deleting institute:", error);
-    res.status(500).json({ message: "Failed to delete tenant." });
+    return res.status(500).json({ message: "Failed to delete tenant." });
   }
 };
 
-export const getPlans = async (req: Request, res: Response) => {
+export const getPlans = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const plans = await Plan.find().sort({ createdAt: 1 });
-    res.status(200).json(plans);
+    return res.status(200).json(plans);
   } catch (error) {
     console.error("Error fetching plans:", error);
-    res.status(500).json({ message: "Failed to fetch pricing plans." });
+    return res.status(500).json({ message: "Failed to fetch pricing plans." });
   }
 };
 
-export const updatePlan = async (req: Request, res: Response) => {
+export const updatePlan = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { price, apiLimit, details } = req.body;
@@ -253,24 +244,24 @@ export const updatePlan = async (req: Request, res: Response) => {
 
     await plan.save();
 
-    res.status(200).json({ message: "Plan parameters updated successfully.", plan });
+    return res.status(200).json({ message: "Plan parameters updated successfully.", plan });
   } catch (error) {
     console.error("Error updating plan:", error);
-    res.status(500).json({ message: "Failed to update pricing plan." });
+    return res.status(500).json({ message: "Failed to update pricing plan." });
   }
 };
 
-export const getStudents = async (req: Request, res: Response) => {
+export const getStudents = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const students = await User.find({ role: "Student" }).populate("instituteId", "name brandName legalName status");
-    res.status(200).json(students);
+    return res.status(200).json(students);
   } catch (error) {
     console.error("Error fetching students:", error);
-    res.status(500).json({ message: "Failed to fetch students." });
+    return res.status(500).json({ message: "Failed to fetch students." });
   }
 };
 
-export const deleteUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -285,18 +276,16 @@ export const deleteUser = async (req: Request, res: Response) => {
       return res.status(403).json({ message: "To delete an Institute Admin, you must delete their Institute Tenant instead." });
     }
 
-    // Delete related enrollments if user is a student
-    await Enrollment.deleteMany({ studentId: id });
-
+    await Enrollment.deleteMany({ userId: id });
     await User.findByIdAndDelete(id);
-    res.status(200).json({ message: "User completely removed from system." });
+    return res.status(200).json({ message: "User completely removed from system." });
   } catch (error) {
     console.error("Error deleting user:", error);
-    res.status(500).json({ message: "Failed to delete user." });
+    return res.status(500).json({ message: "Failed to delete user." });
   }
 };
 
-export const getStudentDetails = async (req: Request, res: Response) => {
+export const getStudentDetails = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const student = await User.findById(id).populate("instituteId", "name brandName");
@@ -305,7 +294,7 @@ export const getStudentDetails = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Student not found." });
     }
 
-    const enrollments = await Enrollment.find({ studentId: id }).populate({
+    const enrollments = await Enrollment.find({ userId: id }).populate({
       path: "courseId",
       populate: {
         path: "instituteId",
@@ -313,18 +302,18 @@ export const getStudentDetails = async (req: Request, res: Response) => {
       }
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       student,
       enrollments: enrollments.map((e: any) => ({
         id: e._id,
         courseName: e.courseId?.name,
         courseCode: e.courseId?.studentCode || e.courseId?.courseCode,
         institute: e.courseId?.instituteId,
-        enrolledAt: e.enrolledAt
+        enrolledAt: e.joinedAt
       }))
     });
   } catch (error) {
     console.error("Error fetching student details:", error);
-    res.status(500).json({ message: "Failed to fetch student details." });
+    return res.status(500).json({ message: "Failed to fetch student details." });
   }
 };

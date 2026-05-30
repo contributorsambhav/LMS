@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, AlertTriangle, BookOpen, Building, CheckCircle2, CreditCard, Database, HelpCircle, Mail, MapPin, Play, Plus, Server, Settings, ShieldCheck, Sparkles, Terminal, Users } from 'lucide-react';
+import { Activity, AlertTriangle, BookOpen, Building, CheckCircle2, CreditCard, Database, Mail, Server, ShieldCheck } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useSearchParams } from 'next/navigation';
@@ -86,8 +86,6 @@ export default function SuperAdminDashboard() {
       fetchInstitutes(token);
       fetchVerifications(token);
     } else {
-      // If session exists but no backend token was provided,
-      // stop the loader so the empty-state UI can render.
       setLoading(false);
     }
   }, [session?.token, session]);
@@ -156,8 +154,6 @@ export default function SuperAdminDashboard() {
     const token = session?.token;
     if (!token) return;
 
-    // Determine target status
-    // If pending/suspended -> "Active". If active -> "Suspended"
     const targetStatus = currentStatus === 'Active' ? 'Suspended' : 'Active';
 
     setUpdatingId(instId);
@@ -179,7 +175,6 @@ export default function SuperAdminDashboard() {
       if (res.ok) {
         setFeedbackType('success');
         setFeedbackMsg(data.message || `Successfully marked institute as ${targetStatus}!`);
-        // Refresh local data
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
@@ -216,7 +211,6 @@ export default function SuperAdminDashboard() {
       if (res.ok) {
         setFeedbackType('success');
         setFeedbackMsg(data.message || 'Successfully updated billing plan!');
-        // Refresh local data
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
@@ -279,7 +273,6 @@ export default function SuperAdminDashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        // Refresh plans list
         const plansRes = await fetch('http://localhost:5000/api/super/plans', { headers: { Authorization: `Bearer ${token}` } });
         if (plansRes.ok) setPlans(await plansRes.json());
         setEditingPlanId(null);
@@ -350,34 +343,33 @@ export default function SuperAdminDashboard() {
   if (!session) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
-  // System stats calculated dynamically
   const pendingRequests = institutes.filter((inst) => inst.status === 'Pending').length;
   const activeTenants = institutes.filter((inst) => inst.status === 'Active').length;
   const suspendedTenants = institutes.filter((inst) => inst.status === 'Suspended').length;
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-8 font-sans antialiased text-foreground">
       {/* Dynamic Header */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-zinc-900 pb-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-border pb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white font-display flex items-center gap-2">
-            Super Admin Terminal <Sparkles className="h-5 w-5 text-purple-400 animate-pulse" />
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            Super Admin Terminal
           </h1>
-          <p className="text-xs md:text-sm text-zinc-400 mt-1">Global orchestrator panel. Regulate multi-tenant lifecycles, track engine performance metrics, and approve clients.</p>
+          <p className="text-xs text-muted-foreground mt-1">Global orchestrator panel. Regulate multi-tenant lifecycles, track engine performance metrics, and approve clients.</p>
         </div>
-        <div className="rounded-full bg-zinc-900 border border-zinc-800 px-3.5 py-1.5 text-xs text-zinc-300 font-semibold self-start md:self-auto flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] animate-pulse" />
+        <div className="rounded-md bg-secondary border border-border px-3 py-1.5 text-xs text-muted-foreground font-medium self-start md:self-auto flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           System Status: Optimal
         </div>
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-zinc-800 gap-4 text-sm overflow-x-auto pb-1">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'tenants', label: `Tenants Management (${institutes.length})` },
@@ -391,7 +383,9 @@ export default function SuperAdminDashboard() {
               setActiveTab(tab.id);
               setFeedbackMsg('');
             }}
-            className={`pb-2 font-semibold transition-colors shrink-0 ${activeTab === tab.id ? 'border-b-2 border-purple-500 text-white' : 'text-zinc-400 hover:text-white'}`}
+            className={`pb-2.5 font-medium transition-colors shrink-0 border-b-2 cursor-pointer ${
+              activeTab === tab.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
           >
             {tab.label}
           </button>
@@ -399,29 +393,34 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Action Feedback alerts */}
-      {feedbackMsg && <div className={`p-4 rounded-xl border text-sm ${feedbackType === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>{feedbackMsg}</div>}
+      {feedbackMsg && (
+        <div className={`p-4 rounded-md border text-xs ${
+          feedbackType === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-destructive/10 border-destructive/20 text-destructive'
+        }`}>
+          {feedbackMsg}
+        </div>
+      )}
 
       {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Status Metrics Cards Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { label: 'Active Tenants', val: activeTenants, desc: 'Onboarded and live clients', icon: Building, color: 'text-blue-400' },
-              { label: 'Pending Approvals', val: pendingRequests, desc: 'Awaiting SuperAdmin activation', icon: AlertTriangle, color: pendingRequests > 0 ? 'text-amber-400 animate-pulse' : 'text-zinc-500' },
-              { label: 'Suspended Clients', val: suspendedTenants, desc: 'In-active platform blocks', icon: ShieldCheck, color: 'text-rose-400' },
-              { label: 'Hardware Clusters', val: 'Optimal', desc: 'Mongoose database pools', icon: Server, color: 'text-purple-400' }
+              { label: 'Active Tenants', val: activeTenants, desc: 'Onboarded and live clients', icon: Building, color: 'text-foreground' },
+              { label: 'Pending Approvals', val: pendingRequests, desc: 'Awaiting SuperAdmin activation', icon: AlertTriangle, color: pendingRequests > 0 ? 'text-amber-500' : 'text-muted-foreground' },
+              { label: 'Suspended Clients', val: suspendedTenants, desc: 'In-active platform blocks', icon: ShieldCheck, color: 'text-muted-foreground' },
+              { label: 'Hardware Clusters', val: 'Optimal', desc: 'Mongoose database pools', icon: Server, color: 'text-foreground' }
             ].map((stat, i) => {
               const Icon = stat.icon;
               return (
-                <div key={i} className="glass border border-white/5 rounded-xl p-5 shadow-xl relative overflow-hidden">
-                  <div className="absolute -top-12 -left-12 h-24 w-24 rounded-full bg-white/5 blur-xl" />
+                <div key={i} className="bg-card border border-border rounded-lg p-6">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest">{stat.label}</span>
-                    <Icon className={`h-4.5 w-4.5 ${stat.color}`} />
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</span>
+                    <Icon className={`h-4 w-4 ${stat.color}`} />
                   </div>
-                  <p className="text-xl md:text-2xl font-extrabold text-white mt-2 leading-none">{stat.val}</p>
-                  <p className="text-[10px] text-zinc-400 mt-2">{stat.desc}</p>
+                  <p className="text-2xl font-semibold text-foreground mt-2 leading-none">{stat.val}</p>
+                  <p className="text-[10px] text-muted-foreground mt-2">{stat.desc}</p>
                 </div>
               );
             })}
@@ -429,21 +428,21 @@ export default function SuperAdminDashboard() {
 
           {/* Pending verification requests list */}
           {verifications.length > 0 && (
-            <div className="glass border border-white/5 rounded-xl p-5 shadow-xl">
-              <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400 mb-3">Pending Verification Requests</h3>
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Pending Verification Requests</h3>
               <div className="space-y-3">
                 {verifications.map((v: any) => (
-                  <div key={v._id || v.id} className="flex items-center justify-between border-b border-zinc-900/40 pb-3">
+                  <div key={v._id || v.id} className="flex items-center justify-between border-b border-border pb-3 last:border-b-0 last:pb-0">
                     <div>
-                      <p className="font-bold text-white">{v.institute?.name || v.instituteId?.name || String(v.instituteId || 'Unknown')}</p>
-                      <p className="text-xs text-zinc-400">Requested by: {v.admin?.email || v.adminId?.email || String(v.adminId || 'Unknown')}</p>
-                      <p className="text-xs text-zinc-500 mt-1">Submitted: {v.createdAt ? new Date(v.createdAt).toLocaleString() : '—'}</p>
+                      <p className="font-semibold text-xs text-foreground">{v.institute?.name || v.instituteId?.name || String(v.instituteId || 'Unknown')}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Requested by: {v.admin?.email || v.adminId?.email || String(v.adminId || 'Unknown')}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Submitted: {v.createdAt ? new Date(v.createdAt).toLocaleString() : '—'}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button disabled={updatingId === (v._id || v.id)} onClick={() => handleApproveVerification(v._id || v.id)} className="rounded px-3 py-1.5 text-xs font-black bg-emerald-500 text-black">
+                      <button disabled={updatingId === (v._id || v.id)} onClick={() => handleApproveVerification(v._id || v.id)} className="rounded-md bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50 cursor-pointer">
                         Approve
                       </button>
-                      <button disabled={updatingId === (v._id || v.id)} onClick={() => handleRejectVerification(v._id || v.id)} className="rounded px-3 py-1.5 text-xs font-black bg-rose-500 text-white">
+                      <button disabled={updatingId === (v._id || v.id)} onClick={() => handleRejectVerification(v._id || v.id)} className="rounded-md bg-destructive hover:bg-destructive/90 px-3 py-1.5 text-xs font-medium text-destructive-foreground disabled:opacity-50 cursor-pointer">
                         Reject
                       </button>
                     </div>
@@ -456,26 +455,26 @@ export default function SuperAdminDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Tenants List Preview */}
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Platform Tenants</h3>
-                <span className="text-xs text-zinc-500 font-semibold">{institutes.length} registered</span>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Platform Tenants</h3>
+                <span className="text-xs text-muted-foreground">{institutes.length} registered</span>
               </div>
 
               {loading ? (
                 <div className="flex h-32 items-center justify-center">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
               ) : institutes.length === 0 ? (
-                <div className="glass border border-white/5 rounded-xl p-8 text-center text-zinc-500">No registered tenants currently found on MongoDB.</div>
+                <div className="bg-card border border-border rounded-lg p-8 text-center text-xs text-muted-foreground">No registered tenants currently found on MongoDB.</div>
               ) : (
-                <div className="grid gap-4">
+                <div className="grid gap-3">
                   {institutes.map((inst: any) => (
-                    <div key={inst.id} className="glass border border-white/5 hover:border-white/10 rounded-xl p-5 shadow-lg transition-all group">
+                    <div key={inst.id} className="bg-card border border-border rounded-lg p-5 hover:bg-secondary/20 transition-colors">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-bold text-purple-300 font-mono">{inst.billingPlan}</span>
-                            <span className="text-[10px] text-zinc-500 font-semibold flex items-center gap-2">
+                            <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-semibold text-primary font-mono">{inst.billingPlan}</span>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
                               <span>{inst.usage.courses} Courses</span>
                               <span>•</span>
                               <span>{inst.usage.faculty} Faculty</span>
@@ -483,13 +482,19 @@ export default function SuperAdminDashboard() {
                               <span>{inst.usage.students} Students</span>
                             </span>
                           </div>
-                          <h4 className="font-bold text-white text-base mt-1.5 group-hover:text-purple-300 transition-colors">{inst.name}</h4>
-                          <p className="text-xs text-zinc-400 mt-1 flex items-center gap-1.5">
-                            <Mail className="h-3 w-3 text-zinc-500" /> Admin: {inst.admin?.email || 'Unknown'}
+                          <h4 className="font-semibold text-foreground text-sm mt-2">{inst.name}</h4>
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                            <Mail className="h-3 w-3 text-muted-foreground" /> Admin: {inst.admin?.email || 'Unknown'}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className={`text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-full border ${inst.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : inst.status === 'Pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>{inst.status}</span>
+                          <span className={`text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                            inst.status === 'Active' 
+                              ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400' 
+                              : inst.status === 'Pending' 
+                                ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' 
+                                : 'bg-destructive/10 text-destructive border-destructive/20'
+                          }`}>{inst.status}</span>
                         </div>
                       </div>
                     </div>
@@ -498,34 +503,33 @@ export default function SuperAdminDashboard() {
               )}
             </div>
 
-            {/* Static diagnostics details / live terminal log emulation */}
+            {/* Diagnostics system logs */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">System Logs</h3>
-                <span className="text-xs text-zinc-500 font-semibold">Live Monitor</span>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">System Logs</h3>
               </div>
 
-              <div className="glass border border-white/5 rounded-xl p-5 shadow-xl font-mono text-[10px] space-y-4 max-h-[350px] overflow-y-auto bg-zinc-950/90 text-zinc-400 border-zinc-900">
-                <div className="border-b border-zinc-900 pb-3">
+              <div className="bg-secondary/15 border border-border rounded-lg p-5 font-mono text-[10px] space-y-4 max-h-[350px] overflow-y-auto text-muted-foreground">
+                <div className="border-b border-border pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-zinc-500">11:51:20</span>
-                    <span className="font-bold text-purple-400">[INFO]</span>
+                    <span className="text-muted-foreground/60">11:51:20</span>
+                    <span className="font-semibold text-primary">[INFO]</span>
                   </div>
-                  <p className="mt-1 text-zinc-300 leading-normal">SuperAdmin authenticated via Secure code successfully.</p>
+                  <p className="mt-1 text-foreground leading-normal">SuperAdmin authenticated via Secure code successfully.</p>
                 </div>
-                <div className="border-b border-zinc-900 pb-3">
+                <div className="border-b border-border pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-zinc-500">11:48:02</span>
-                    <span className="font-bold text-purple-400">[INFO]</span>
+                    <span className="text-muted-foreground/60">11:48:02</span>
+                    <span className="font-semibold text-primary">[INFO]</span>
                   </div>
-                  <p className="mt-1 text-zinc-300 leading-normal">Database indexes verified. Course join keys active.</p>
+                  <p className="mt-1 text-foreground leading-normal">Database indexes verified. Course join keys active.</p>
                 </div>
-                <div className="border-b border-zinc-900 pb-3">
+                <div className="border-b border-border pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-zinc-500">11:32:15</span>
-                    <span className="font-bold text-amber-400">[WARN]</span>
+                    <span className="text-muted-foreground/60">11:32:15</span>
+                    <span className="font-semibold text-amber-500">[WARN]</span>
                   </div>
-                  <p className="mt-1 text-zinc-300 leading-normal">Google OAuth configuration loaded. Local Dev Sandbox active.</p>
+                  <p className="mt-1 text-foreground leading-normal">Google OAuth configuration loaded. Local Dev Sandbox active.</p>
                 </div>
               </div>
             </div>
@@ -535,21 +539,21 @@ export default function SuperAdminDashboard() {
 
       {/* Tenants Management Tab */}
       {activeTab === 'tenants' && (
-        <div className="glass border border-white/5 rounded-xl p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Tenant Allocations & Status</h3>
-            <span className="text-xs text-zinc-500 font-semibold">{institutes.length} total clients</span>
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tenant Allocations & Status</h3>
+            <span className="text-xs text-muted-foreground">{institutes.length} total clients</span>
           </div>
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-900 text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                  <tr className="border-b border-border text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                     <th className="pb-3 pr-4">Institution Name</th>
                     <th className="pb-3 pr-4">Admin Email</th>
                     <th className="pb-3 pr-4">Billing Plan</th>
@@ -559,29 +563,54 @@ export default function SuperAdminDashboard() {
                     <th className="pb-3 text-right">Action Gate</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-900 text-sm">
+                <tbody className="divide-y divide-border text-xs">
                   {institutes.map((inst: any) => (
-                    <tr key={inst.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-4 font-bold text-white pr-4">{inst.name}</td>
-                      <td className="py-4 text-zinc-400 pr-4">{inst.admin?.email || 'Unknown'}</td>
+                    <tr key={inst.id} className="hover:bg-secondary/20 transition-colors">
+                      <td className="py-4 font-semibold text-foreground pr-4">{inst.name}</td>
+                      <td className="py-4 text-muted-foreground pr-4">{inst.admin?.email || 'Unknown'}</td>
                       <td className="py-4 pr-4">
-                        <select value={inst.billingPlan} onChange={(e) => handleBillingChange(inst.id, e.target.value)} disabled={updatingId === inst.id} className="bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 font-semibold py-1 px-2 rounded focus:outline-none focus:border-purple-500">
+                        <select 
+                          value={inst.billingPlan} 
+                          onChange={(e) => handleBillingChange(inst.id, e.target.value)} 
+                          disabled={updatingId === inst.id} 
+                          className="bg-card border border-input text-xs text-foreground py-1 px-2 rounded focus:outline-none focus:border-primary"
+                        >
                           {plans.map(p => (
                             <option key={p.planCode} value={p.planCode}>{p.name}</option>
                           ))}
                         </select>
                       </td>
-                      <td className="py-4 font-mono text-purple-400 pr-4">{inst.usage.courses}</td>
-                      <td className="py-4 text-zinc-400 pr-4">{inst.usage.faculty + inst.usage.students}</td>
+                      <td className="py-4 font-mono text-primary pr-4">{inst.usage.courses}</td>
+                      <td className="py-4 text-muted-foreground pr-4">{inst.usage.faculty + inst.usage.students}</td>
                       <td className="py-4 pr-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-widest ${inst.status === 'Active' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : inst.status === 'Pending' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20 animate-pulse' : 'bg-rose-500/10 text-rose-300 border-rose-500/20'}`}>{inst.status}</span>
+                        <span className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                          inst.status === 'Active' 
+                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400' 
+                            : inst.status === 'Pending' 
+                              ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' 
+                              : 'bg-destructive/10 text-destructive border-destructive/20'
+                        }`}>{inst.status}</span>
                       </td>
                       <td className="py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button disabled={updatingId === inst.id} onClick={() => handleStatusChange(inst.id, inst.status)} className={`rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors ${inst.status === 'Active' ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20' : inst.status === 'Pending' ? 'bg-emerald-500 text-black hover:bg-emerald-400 shadow-md shadow-emerald-500/10' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20'} disabled:opacity-50`}>
+                          <button 
+                            disabled={updatingId === inst.id} 
+                            onClick={() => handleStatusChange(inst.id, inst.status)} 
+                            className={`rounded-md px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors cursor-pointer ${
+                              inst.status === 'Active' 
+                                ? 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 border border-amber-500/20' 
+                                : inst.status === 'Pending' 
+                                  ? 'bg-emerald-600 text-white hover:bg-emerald-750' 
+                                  : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/20'
+                            } disabled:opacity-50`}
+                          >
                             {updatingId === inst.id ? 'Wait...' : inst.status === 'Active' ? 'Suspend' : inst.status === 'Pending' ? 'Approve' : 'Activate'}
                           </button>
-                          <button disabled={updatingId === inst.id} onClick={() => handleDeleteTenant(inst.id)} className="rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 disabled:opacity-50">
+                          <button 
+                            disabled={updatingId === inst.id} 
+                            onClick={() => handleDeleteTenant(inst.id)} 
+                            className="rounded-md px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 cursor-pointer"
+                          >
                             Delete
                           </button>
                         </div>
@@ -597,21 +626,21 @@ export default function SuperAdminDashboard() {
 
       {/* Students Management Tab */}
       {activeTab === 'students' && (
-        <div className="glass border border-white/5 rounded-xl p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Global Student Directory</h3>
-            <span className="text-xs text-zinc-500 font-semibold">{students.length} total students</span>
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Global Student Directory</h3>
+            <span className="text-xs text-muted-foreground">{students.length} total students</span>
           </div>
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-zinc-900 text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                  <tr className="border-b border-border text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                     <th className="pb-3 pr-4">Student Name</th>
                     <th className="pb-3 pr-4">Email</th>
                     <th className="pb-3 pr-4">Base Institute</th>
@@ -619,17 +648,27 @@ export default function SuperAdminDashboard() {
                     <th className="pb-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-900 text-sm">
+                <tbody className="divide-y divide-border text-xs">
                   {students.map((student: any) => (
-                    <tr key={student._id} onClick={() => handleViewStudentDetails(student._id)} className="hover:bg-white/5 transition-colors cursor-pointer group">
-                      <td className="py-4 font-bold text-white pr-4 group-hover:text-purple-400 transition-colors">{student.name}</td>
-                      <td className="py-4 text-zinc-400 pr-4">{student.email}</td>
-                      <td className="py-4 text-zinc-400 pr-4">{student.instituteId?.name || 'Independent Learner'}</td>
+                    <tr key={student._id} onClick={() => handleViewStudentDetails(student._id)} className="hover:bg-secondary/20 transition-colors cursor-pointer group">
+                      <td className="py-4 font-semibold text-foreground pr-4 group-hover:text-primary transition-colors">{student.name}</td>
+                      <td className="py-4 text-muted-foreground pr-4">{student.email}</td>
+                      <td className="py-4 text-muted-foreground pr-4">{student.instituteId?.name || 'Independent Learner'}</td>
                       <td className="py-4 pr-4">
-                        <span className={`rounded-full border px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-widest ${student.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : student.status === 'Pending' ? 'bg-amber-500/10 text-amber-300 border-amber-500/20 animate-pulse' : 'bg-rose-500/10 text-rose-300 border-rose-500/20'}`}>{student.status}</span>
+                        <span className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                          student.status === 'Approved' 
+                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400' 
+                            : student.status === 'Pending' 
+                              ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' 
+                              : 'bg-destructive/10 text-destructive border-destructive/20'
+                        }`}>{student.status}</span>
                       </td>
                       <td className="py-4 text-right">
-                        <button disabled={updatingId === student._id} onClick={(e) => handleDeleteStudent(e, student._id)} className="rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-colors bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 disabled:opacity-50">
+                        <button 
+                          disabled={updatingId === student._id} 
+                          onClick={(e) => handleDeleteStudent(e, student._id)} 
+                          className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
+                        >
                           Delete
                         </button>
                       </td>
@@ -638,7 +677,7 @@ export default function SuperAdminDashboard() {
                 </tbody>
               </table>
               {students.length === 0 && (
-                <div className="text-center py-8 text-sm text-zinc-500">No students are currently registered on the platform.</div>
+                <div className="text-center py-8 text-xs text-muted-foreground">No students are currently registered on the platform.</div>
               )}
             </div>
           )}
@@ -649,51 +688,51 @@ export default function SuperAdminDashboard() {
       {activeTab === 'billing' && (
         <div className="space-y-6">
           {plans.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-zinc-500">Loading live plans from database...</div>
+            <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">Loading live plans from database...</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
               {plans.map((plan: any) => (
-                <div key={plan._id} className="glass border border-white/5 rounded-xl overflow-hidden shadow-xl flex flex-col justify-between p-6 relative">
+                <div key={plan._id} className="bg-card border border-border rounded-lg p-6 flex flex-col justify-between">
                   {editingPlanId === plan._id ? (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">{plan.name}</h4>
+                      <div className="flex items-center justify-between pb-2 border-b border-border">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">{plan.name}</h4>
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase">Price</label>
-                        <input type="text" value={planForm.price || ''} onChange={e => setPlanForm({...planForm, price: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500 mt-1" />
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase">Price</label>
+                        <input type="text" value={planForm.price || ''} onChange={e => setPlanForm({...planForm, price: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase">API Limit</label>
-                        <input type="text" value={planForm.apiLimit || ''} onChange={e => setPlanForm({...planForm, apiLimit: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500 mt-1" />
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase">API Limit</label>
+                        <input type="text" value={planForm.apiLimit || ''} onChange={e => setPlanForm({...planForm, apiLimit: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase">Details</label>
-                        <textarea value={planForm.details || ''} onChange={e => setPlanForm({...planForm, details: e.target.value})} className="w-full bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-purple-500 mt-1 resize-none" rows={2} />
+                        <label className="text-[10px] font-medium text-muted-foreground uppercase">Details</label>
+                        <textarea value={planForm.details || ''} onChange={e => setPlanForm({...planForm, details: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1 resize-none" rows={2} />
                       </div>
                       <div className="flex gap-2 mt-4">
-                        <button onClick={handleUpdatePlan} className="w-full rounded bg-purple-500 hover:bg-purple-400 py-1.5 text-xs font-bold text-white transition-colors">Save</button>
-                        <button onClick={() => setEditingPlanId(null)} className="w-full rounded bg-zinc-800 hover:bg-zinc-700 py-1.5 text-xs font-bold text-white transition-colors">Cancel</button>
+                        <button onClick={handleUpdatePlan} className="w-full rounded bg-primary hover:bg-primary/90 py-1.5 text-xs font-medium text-primary-foreground transition-colors cursor-pointer">Save</button>
+                        <button onClick={() => setEditingPlanId(null)} className="w-full rounded border border-border hover:bg-secondary py-1.5 text-xs font-medium text-foreground transition-colors cursor-pointer">Cancel</button>
                       </div>
                     </div>
                   ) : (
                     <>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">{plan.name}</h4>
-                          <CreditCard className="h-4.5 w-4.5 text-purple-400" />
+                          <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{plan.name}</h4>
+                          <CreditCard className="h-4 w-4 text-muted-foreground" />
                         </div>
 
-                        <p className="text-3xl font-black text-white">{plan.price}</p>
-                        <p className="text-xs text-zinc-500">
-                          API limits configuration: <strong className="text-white">{plan.apiLimit}</strong>
+                        <p className="text-2xl font-semibold text-foreground">{plan.price}</p>
+                        <p className="text-xs text-muted-foreground">
+                          API limits configuration: <strong className="text-foreground font-medium">{plan.apiLimit}</strong>
                         </p>
 
-                        <div className="h-1 bg-zinc-900 rounded-full my-4" />
-                        <p className="text-xs text-zinc-400 font-semibold">{plan.details}</p>
+                        <div className="h-px bg-border my-4" />
+                        <p className="text-xs text-muted-foreground">{plan.details}</p>
                       </div>
 
-                      <button onClick={() => { setEditingPlanId(plan._id); setPlanForm({ price: plan.price, apiLimit: plan.apiLimit, details: plan.details }); }} className="w-full mt-6 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 hover:bg-white/10 py-2.5 text-xs font-bold text-white transition-colors">Modify Pricing Parameters</button>
+                      <button onClick={() => { setEditingPlanId(plan._id); setPlanForm({ price: plan.price, apiLimit: plan.apiLimit, details: plan.details }); }} className="w-full mt-6 rounded-md border border-border hover:bg-secondary bg-card py-2 text-xs font-medium text-foreground transition-colors cursor-pointer">Modify Pricing Parameters</button>
                     </>
                   )}
                 </div>
@@ -705,36 +744,36 @@ export default function SuperAdminDashboard() {
 
       {/* Diagnostics Health checks */}
       {activeTab === 'health' && (
-        <div className="glass border border-white/5 rounded-xl p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Live Hardware Monitors</h3>
-            <span className="text-xs text-purple-400 font-semibold flex items-center gap-1.5">
-              <Activity className="h-4 w-4 animate-bounce" /> Optimal diagnostics
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Live Hardware Monitors</h3>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1.5">
+              <Activity className="h-4 w-4" /> Optimal diagnostics
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-zinc-900/30 border border-zinc-900 rounded-xl p-5">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Database pool size</span>
-              <p className="text-2xl font-black text-white mt-1">18 / 50</p>
-              <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-purple-500" style={{ width: '36%' }} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="bg-secondary/10 border border-border rounded-lg p-5">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Database pool size</span>
+              <p className="text-2xl font-semibold text-foreground mt-1">18 / 50</p>
+              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-3">
+                <div className="h-full bg-primary" style={{ width: '36%' }} />
               </div>
             </div>
 
-            <div className="bg-zinc-900/30 border border-zinc-900 rounded-xl p-5">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Memory usage load</span>
-              <p className="text-2xl font-black text-white mt-1">4.2 GB / 16 GB</p>
-              <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-blue-500" style={{ width: '26%' }} />
+            <div className="bg-secondary/10 border border-border rounded-lg p-5">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Memory usage load</span>
+              <p className="text-2xl font-semibold text-foreground mt-1">4.2 GB / 16 GB</p>
+              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-3">
+                <div className="h-full bg-primary" style={{ width: '26%' }} />
               </div>
             </div>
 
-            <div className="bg-zinc-900/30 border border-zinc-900 rounded-xl p-5">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Storage capacity</span>
-              <p className="text-2xl font-black text-white mt-1">14.8 GB / 100 GB</p>
-              <div className="h-1 w-full bg-zinc-800 rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-emerald-500" style={{ width: '15%' }} />
+            <div className="bg-secondary/10 border border-border rounded-lg p-5">
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Storage capacity</span>
+              <p className="text-2xl font-semibold text-foreground mt-1">14.8 GB / 100 GB</p>
+              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-3">
+                <div className="h-full bg-primary" style={{ width: '15%' }} />
               </div>
             </div>
           </div>
@@ -744,33 +783,33 @@ export default function SuperAdminDashboard() {
       {/* Student Details Overlay Panel */}
       {selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl bg-zinc-950 border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] p-5">
+          <div className="w-full max-w-2xl bg-card border border-border rounded-lg shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-border p-5">
               <div>
-                <h3 className="text-xl font-extrabold text-white">{selectedStudent.student.name}</h3>
-                <p className="text-sm text-zinc-400 mt-0.5">{selectedStudent.student.email}</p>
+                <h3 className="text-base font-semibold text-foreground">{selectedStudent.student.name}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{selectedStudent.student.email}</p>
               </div>
-              <button onClick={() => setSelectedStudent(null)} className="rounded-full p-2 text-zinc-400 hover:bg-white/10 hover:text-white transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              <button onClick={() => setSelectedStudent(null)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
             
-            <div className="p-5 overflow-y-auto max-h-[60vh]">
-              <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Course Enrollments ({selectedStudent.enrollments.length})</h4>
+            <div className="p-5 overflow-y-auto max-h-[60vh] space-y-4">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Course Enrollments ({selectedStudent.enrollments.length})</h4>
               {selectedStudent.enrollments.length === 0 ? (
-                <div className="text-center py-8 text-sm text-zinc-500 bg-zinc-900/30 rounded-xl border border-zinc-900">This student has not enrolled in any courses.</div>
+                <div className="text-center py-8 text-xs text-muted-foreground bg-secondary/10 rounded-md border border-border">This student has not enrolled in any courses.</div>
               ) : (
                 <div className="grid gap-3">
                   {selectedStudent.enrollments.map((e: any) => (
-                    <div key={e.id} className="p-4 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-colors">
+                    <div key={e.id} className="p-4 rounded-md border border-border bg-secondary/10 hover:bg-secondary/20 transition-colors">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <span className="rounded bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 text-[9px] font-bold text-purple-300 font-mono">{e.courseCode || 'NO-CODE'}</span>
-                            <h5 className="font-bold text-white text-sm">{e.courseName}</h5>
+                            <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-semibold text-primary font-mono">{e.courseCode || 'NO-CODE'}</span>
+                            <h5 className="font-semibold text-foreground text-xs">{e.courseName}</h5>
                           </div>
-                          <p className="text-xs text-zinc-400 mb-2">Provider: <span className="font-semibold text-zinc-300">{e.institute?.name || e.institute?.brandName || 'Unknown Institute'}</span></p>
-                          <p className="text-[10px] text-zinc-500">Enrolled: {new Date(e.enrolledAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-muted-foreground mb-2">Provider: <span className="font-medium text-foreground">{e.institute?.name || e.institute?.brandName || 'Unknown Institute'}</span></p>
+                          <p className="text-[10px] text-muted-foreground">Enrolled: {new Date(e.enrolledAt).toLocaleDateString()}</p>
                         </div>
                       </div>
                     </div>

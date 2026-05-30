@@ -7,6 +7,7 @@ export interface IUser extends Document {
   role: "SuperAdmin" | "InstituteAdmin" | "Faculty" | "Student";
   instituteId: Schema.Types.ObjectId | null;
   status: "Pending" | "Approved" | "Suspended";
+  affiliationStatus: "Unaffiliated" | "Pending" | "Approved";
   phoneNumber?: string;
   address?: string;
 }
@@ -26,6 +27,11 @@ const UserSchema = new Schema<IUser>(
       type: String, 
       enum: ["Pending", "Approved", "Suspended"], 
       default: "Pending" 
+    },
+    affiliationStatus: { 
+      type: String, 
+      enum: ["Unaffiliated", "Pending", "Approved"], 
+      default: "Unaffiliated" 
     },
     phoneNumber: { type: String, trim: true },
     address: { type: String, trim: true }

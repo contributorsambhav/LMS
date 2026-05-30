@@ -268,11 +268,16 @@ export const getPendingUsers = async (req: AuthenticatedRequest, res: Response) 
       return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
     }
 
+    // Faculty: pending = affiliationStatus is "Pending" (their account status is always Approved)
+    // Student: pending = status is "Pending"
     const pendingUsers = await User.find({
       instituteId,
-      status: "Pending",
-      role: { $in: ["Faculty", "Student"] }
-    }, "name email role status createdAt");
+      role: { $in: ["Faculty", "Student"] },
+      $or: [
+        { role: "Faculty", affiliationStatus: "Pending" },
+        { role: "Student", status: "Pending" }
+      ]
+    }, "name email role status affiliationStatus createdAt");
 
     return res.status(200).json(pendingUsers);
   } catch (error: any) {
@@ -301,6 +306,21 @@ export const updateUserStatus = async (req: AuthenticatedRequest, res: Response)
     }
 
     user.status = status;
+
+    // For Faculty: approving means setting affiliationStatus = Approved.
+    // Rejecting/Pending means reverting affiliation.
+    if (user.role === "Faculty") {
+      if (status === "Approved") {
+        user.affiliationStatus = "Approved";
+      } else if (status === "Pending") {
+        user.affiliationStatus = "Pending";
+      } else if (status === "Suspended") {
+        // Suspended faculty: keep affiliationStatus as-is but could be set to Unaffiliated
+        user.affiliationStatus = "Unaffiliated";
+        user.instituteId = null;
+      }
+    }
+
     await user.save();
 
     return res.status(200).json({
@@ -310,7 +330,8 @@ export const updateUserStatus = async (req: AuthenticatedRequest, res: Response)
         name: user.name,
         email: user.email,
         role: user.role,
-        status: user.status
+        status: user.status,
+        affiliationStatus: user.affiliationStatus
       }
     });
   } catch (error: any) {
@@ -345,14 +366,15 @@ export const getRoster = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
     }
 
-    const roster = await User.find({
+    // Faculty: affiliated = affiliationStatus "Approved" (their user status is always "Approved")
+    // Student: enrolled = status "Approved"
+    const allUsers = await User.find({
       instituteId,
-      status: "Approved",
       role: { $in: ["Faculty", "Student"] }
-    }, "name email role createdAt status");
+    }, "name email role createdAt status affiliationStatus");
 
-    const faculties = roster.filter(u => u.role === "Faculty");
-    const students = roster.filter(u => u.role === "Student");
+    const faculties = allUsers.filter(u => u.role === "Faculty" && u.affiliationStatus === "Approved");
+    const students = allUsers.filter(u => u.role === "Student" && u.status === "Approved");
 
     return res.status(200).json({ faculties, students });
   } catch (error: any) {

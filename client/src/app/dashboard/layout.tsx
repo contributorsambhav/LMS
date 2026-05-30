@@ -33,20 +33,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Handle Pending or Suspended statuses with locked screens
   if (user.status === 'Pending') {
     return (
-      <div className="mesh-bg min-h-screen flex items-center justify-center p-4">
-        <div className="glass border border-white/10 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -left-24 h-48 w-48 rounded-full bg-amber-500/10 blur-3xl" />
+      <div className="bg-background min-h-screen flex items-center justify-center p-6">
+        <div className="bg-card border border-border rounded-lg p-8 max-w-md w-full text-center relative overflow-hidden">
           <div className="relative">
-            <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-amber-500/10 mb-6 shadow-lg shadow-amber-500/20 border border-amber-500/20">
-              <Clock className="h-8 w-8 text-amber-500 animate-pulse" />
+            <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-md bg-amber-500/10 mb-6 border border-amber-500/20">
+              <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Approval Pending</h2>
-            <p className="text-sm text-zinc-400 mb-8 leading-relaxed">
+            <h2 className="text-xl font-semibold text-foreground mb-2 tracking-tight">Approval Pending</h2>
+            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
               {user.role === 'admin' || user.role === 'InstituteAdmin'
                 ? "Your Institute Administrator account is currently pending review by the Super Admin. You will receive access once approved." 
                 : "Your account is currently pending approval by your Institute Administrator. You will receive access once approved."}
             </p>
-            <a href="/api/auth/logout" className="inline-flex w-full justify-center items-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition-all hover:bg-zinc-200 hover:scale-[1.02] active:scale-[0.98]">
+            <a href="/api/auth/logout" className="inline-flex w-full justify-center items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
               Return to Login
             </a>
           </div>
@@ -57,18 +56,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (user.status === 'Suspended') {
     return (
-      <div className="mesh-bg min-h-screen flex items-center justify-center p-4">
-        <div className="glass border border-white/10 rounded-2xl p-8 max-w-md w-full text-center shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -left-24 h-48 w-48 rounded-full bg-rose-500/10 blur-3xl" />
+      <div className="bg-background min-h-screen flex items-center justify-center p-6">
+        <div className="bg-card border border-border rounded-lg p-8 max-w-md w-full text-center relative overflow-hidden">
           <div className="relative">
-            <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-rose-500/10 mb-6 shadow-lg shadow-rose-500/20 border border-rose-500/20">
-              <Ban className="h-8 w-8 text-rose-500" />
+            <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-md bg-destructive/10 mb-6 border border-destructive/20">
+              <Ban className="h-6 w-6 text-destructive" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Account Suspended</h2>
-            <p className="text-sm text-zinc-400 mb-8 leading-relaxed">
+            <h2 className="text-xl font-semibold text-foreground mb-2 tracking-tight">Account Suspended</h2>
+            <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
               Your account has been suspended by the platform administrator. You currently do not have access to the LMS portal.
             </p>
-            <a href="/api/auth/logout" className="inline-flex w-full justify-center items-center gap-2 rounded-xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition-all hover:bg-zinc-200 hover:scale-[1.02] active:scale-[0.98]">
+            <a href="/api/auth/logout" className="inline-flex w-full justify-center items-center gap-2 rounded-md bg-destructive px-4 py-2.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 transition-colors">
               Sign Out
             </a>
           </div>

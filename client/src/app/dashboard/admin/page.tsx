@@ -3,19 +3,25 @@ import React, { useEffect, useState } from "react";
 import { 
   Building, 
   Users, 
-  FileText, 
-  CheckCircle2, 
-  Mail,
-  Shield,
-  Sparkles,
-  Plus
+  Shield, 
+  Plus,
+  AlertCircle,
+  CheckCircle2,
+  Calendar,
+  Clock,
+  X,
+  FileText,
+  BookOpen,
+  PlayCircle,
+  Compass
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "../../../lib/session";
 
 export default function AdminDashboard() {
   const session = useUser();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [courses, setCourses] = useState<any[]>([]);
   const [institute, setInstitute] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
@@ -31,6 +37,47 @@ export default function AdminDashboard() {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Course Creation State
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createDesc, setCreateDesc] = useState("");
+  const [createCourseCode, setCreateCourseCode] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Course Details Modal State
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [detailsTab, setDetailsTab] = useState<'sessions' | 'materials' | 'roster'>('sessions');
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
+  // New Session Input State
+  const [newSessionTitle, setNewSessionTitle] = useState('');
+  const [newSessionDesc, setNewSessionDesc] = useState('');
+  const [newSessionStart, setNewSessionStart] = useState('');
+  const [newSessionEnd, setNewSessionEnd] = useState('');
+  const [newSessionLiveLink, setNewSessionLiveLink] = useState('');
+  const [newSessionRecordedVideo, setNewSessionRecordedVideo] = useState('');
+  const [newSessionFiles, setNewSessionFiles] = useState<FileList | null>(null);
+  const [addingSession, setAddingSession] = useState(false);
+  const [sessionError, setSessionError] = useState('');
+
+  // Bulk Student Add State
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [enrollingStudents, setEnrollingStudents] = useState(false);
+  const [enrollError, setEnrollError] = useState('');
+  const [enrollSuccess, setEnrollSuccess] = useState('');
+
+  // Independent Course Material Input State
+  const [newMaterialTitle, setNewMaterialTitle] = useState('');
+  const [newMaterialFile, setNewMaterialFile] = useState<File | null>(null);
+  const [addingMaterial, setAddingMaterial] = useState(false);
+  const [materialError, setMaterialError] = useState('');
+  const [materialSuccess, setMaterialSuccess] = useState('');
 
   // Fetch courses from backend when session is ready
   const fetchCourses = async (token: string) => {
@@ -97,10 +144,235 @@ export default function AdminDashboard() {
     setActiveTab(tabParam);
   }, [searchParams]);
 
+  const handleCreateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createName || !createDesc || !createCourseCode || !session?.token) return;
+    setCreating(true);
+    try {
+      const res = await fetch("http://localhost:5000/api/courses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ 
+          name: createName, 
+          description: createDesc, 
+          courseCode: createCourseCode 
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCreateName("");
+        setCreateDesc("");
+        setCreateCourseCode("");
+        setIsCreateOpen(false);
+        await fetchCourses(session.token);
+      } else {
+        alert(data.message || "Failed to create course.");
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const fetchCourseSessions = async (courseId: string) => {
+    if (!session?.token) return;
+    setLoadingSessions(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/sessions`, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        setSessions(await res.json());
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const fetchCourseMaterials = async (courseId: string) => {
+    if (!session?.token) return;
+    setLoadingMaterials(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/materials`, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        setMaterials(await res.json());
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingMaterials(false);
+    }
+  };
+
+  const fetchCourseStudents = async (courseId: string) => {
+    if (!session?.token) return;
+    setLoadingStudents(true);
+    try {
+      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/students`, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        setStudents(await res.json());
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  const openCourseDetails = (course: any) => {
+    router.push(`/dashboard/courses/${course._id}`);
+  };
+
+  const handleAddSession = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourse || !newSessionTitle || !newSessionStart || !newSessionEnd || !newSessionLiveLink || !session?.token) {
+      setSessionError('Please fill in all mandatory fields.');
+      return;
+    }
+
+    setAddingSession(true);
+    setSessionError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('title', newSessionTitle);
+      formData.append('description', newSessionDesc);
+      formData.append('startTime', newSessionStart);
+      formData.append('endTime', newSessionEnd);
+      formData.append('liveLink', newSessionLiveLink);
+      formData.append('recordedVideo', newSessionRecordedVideo);
+
+      for (let i = 0; i < newSessionFiles.length; i++) {
+        formData.append('pdfs', newSessionFiles[i]);
+      }
+
+      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/sessions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.token}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setNewSessionTitle('');
+        setNewSessionDesc('');
+        setNewSessionLiveLink('');
+        setNewSessionRecordedVideo('');
+        setNewSessionFiles(null);
+        
+        const fileInput = document.getElementById('session-files') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+
+        await fetchCourseSessions(selectedCourse._id);
+        await fetchCourseMaterials(selectedCourse._id);
+      } else {
+        setSessionError(data.message || 'Failed to add session.');
+      }
+    } catch (error) {
+      console.error(error);
+      setSessionError('Network error occurred.');
+    } finally {
+      setAddingSession(false);
+    }
+  };
+
+  const handleAddMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourse || !newMaterialFile || !session?.token) {
+      setMaterialError('Please select a PDF file.');
+      return;
+    }
+
+    setAddingMaterial(true);
+    setMaterialError('');
+    setMaterialSuccess('');
+
+    try {
+      const formData = new FormData();
+      formData.append('title', newMaterialTitle || newMaterialFile.name);
+      formData.append('pdf', newMaterialFile);
+
+      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/materials`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.token}`
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setNewMaterialTitle('');
+        setNewMaterialFile(null);
+        
+        const fileInput = document.getElementById('material-file') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+
+        setMaterialSuccess('Material uploaded successfully!');
+        await fetchCourseMaterials(selectedCourse._id);
+      } else {
+        setMaterialError(data.message || 'Failed to upload material.');
+      }
+    } catch (error) {
+      console.error(error);
+      setMaterialError('Network error occurred.');
+    } finally {
+      setAddingMaterial(false);
+    }
+  };
+
+  const handleEnrollStudents = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourse || selectedStudentIds.length === 0 || !session?.token) {
+      setEnrollError('Please select at least one student.');
+      return;
+    }
+
+    setEnrollingStudents(true);
+    setEnrollError('');
+    setEnrollSuccess('');
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/students`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ studentIds: selectedStudentIds })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSelectedStudentIds([]);
+        setEnrollSuccess(data.message || 'Students enrolled successfully!');
+        await fetchCourseStudents(selectedCourse._id);
+      } else {
+        setEnrollError(data.message || 'Failed to enroll students.');
+      }
+    } catch (error) {
+      console.error(error);
+      setEnrollError('Network error occurred.');
+    } finally {
+      setEnrollingStudents(false);
+    }
+  };
+
   if (!session) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
@@ -108,22 +380,23 @@ export default function AdminDashboard() {
   const coursesCount = courses.length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-zinc-900 pb-5">
+    <div className="space-y-8 font-sans antialiased text-foreground">
+      {/* Dynamic Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-border pb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white font-display flex items-center gap-2">
-            Institute Admin Console <Sparkles className="h-5 w-5 text-amber-400 animate-pulse" />
+          <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground flex items-center gap-2">
+            Institute Admin Console
           </h1>
-          <p className="text-xs md:text-sm text-zinc-400 mt-1">Manage your institute: courses, rosters, and billing.</p>
+          <p className="text-xs text-muted-foreground mt-1">Manage your institute: courses, rosters, and billing.</p>
         </div>
-        <div className="rounded-full bg-zinc-900 border border-zinc-800 px-3.5 py-1.5 text-xs text-zinc-300 font-semibold self-start md:self-auto flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+        <div className="rounded-md bg-secondary border border-border px-3 py-1.5 text-xs text-muted-foreground font-medium self-start md:self-auto flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
           Tenant: {session.instituteId ? 'Linked Tenant' : 'No Tenant Linked'}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-zinc-800 gap-4 text-sm overflow-x-auto pb-1">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'approvals', label: `Approvals (${pendingUsers.length})` },
@@ -132,7 +405,13 @@ export default function AdminDashboard() {
           { id: 'billing', label: 'Billing' },
           { id: 'settings', label: 'Settings' }
         ].map((tab) => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`pb-2 font-semibold transition-colors shrink-0 ${activeTab === tab.id ? 'border-b-2 border-amber-500 text-white' : 'text-zinc-400 hover:text-white'}`}>
+          <button 
+            key={tab.id} 
+            onClick={() => setActiveTab(tab.id)} 
+            className={`pb-2.5 font-medium transition-colors shrink-0 border-b-2 cursor-pointer ${
+              activeTab === tab.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
             {tab.label}
           </button>
         ))}
@@ -141,23 +420,22 @@ export default function AdminDashboard() {
       {/* Overview */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { label: 'Courses', val: coursesCount, desc: 'Active courses in this institute', icon: Building, color: 'text-amber-400' },
-              { label: 'Total Faculty', val: roster.faculties.length, desc: 'Approved faculty members', icon: Users, color: 'text-emerald-400' },
-              { label: 'Students', val: roster.students.length, desc: 'Enrolled students', icon: Users, color: 'text-blue-400' },
-              { label: 'License', val: plans.find(p => p.planCode === institute?.billingPlan)?.name || institute?.billingPlan || 'Managed', desc: 'Active billing plan tier', icon: Shield, color: 'text-purple-400' }
+              { label: 'Courses', val: coursesCount, desc: 'Active courses in this institute', icon: Building },
+              { label: 'Total Faculty', val: roster.faculties.length, desc: 'Approved faculty members', icon: Users },
+              { label: 'Students', val: roster.students.length, desc: 'Enrolled students', icon: Users },
+              { label: 'License', val: plans.find(p => p.planCode === institute?.billingPlan)?.name || institute?.billingPlan || 'Managed', desc: 'Active billing plan tier', icon: Shield }
             ].map((stat, i) => {
               const Icon = stat.icon as any;
               return (
-                <div key={i} className="glass border border-white/5 rounded-xl p-5 shadow-xl relative overflow-hidden">
-                  <div className="absolute -top-12 -left-12 h-24 w-24 rounded-full bg-white/5 blur-xl" />
+                <div key={i} className="bg-card border border-border rounded-lg p-6">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] md:text-xs font-bold text-zinc-500 uppercase tracking-widest">{stat.label}</span>
-                    <Icon className={`h-4.5 w-4.5 ${stat.color}`} />
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</span>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <p className="text-xl md:text-2xl font-extrabold text-white mt-2 leading-none">{stat.val}</p>
-                  <p className="text-[10px] text-zinc-400 mt-2">{stat.desc}</p>
+                  <p className="text-2xl font-semibold text-foreground mt-2 leading-none">{stat.val}</p>
+                  <p className="text-[10px] text-muted-foreground mt-2">{stat.desc}</p>
                 </div>
               );
             })}
@@ -165,27 +443,36 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Courses Overview</h3>
-                <button className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-black">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Courses Overview</h3>
+                <button 
+                  onClick={() => setIsCreateOpen(true)}
+                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+                >
                   <Plus className="h-3.5 w-3.5" /> Create Course
                 </button>
               </div>
 
               {loading ? (
-                <div className="flex h-32 items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" /></div>
+                <div className="flex h-32 items-center justify-center">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
               ) : courses.length === 0 ? (
-                <div className="glass border border-white/5 rounded-xl p-8 text-center text-zinc-500">No courses found for this institute. Create your first course to get started.</div>
+                <div className="bg-card border border-border rounded-lg p-8 text-center text-xs text-muted-foreground">No courses found for this institute. Create your first course to get started.</div>
               ) : (
-                <div className="grid gap-4">
+                <div className="grid gap-3">
                   {courses.map((course: any) => (
-                    <div key={course._id} className="glass border border-white/5 hover:border-white/10 rounded-xl p-5 shadow-lg transition-all group">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-bold text-white text-base">{course.name}</h4>
-                          <p className="text-xs text-zinc-400 mt-1">{course.description}</p>
-                        </div>
-                        <div className="text-right text-zinc-400">Code: <strong className="text-white">{course.studentCode}</strong></div>
+                    <div 
+                      key={course._id} 
+                      onClick={() => openCourseDetails(course)}
+                      className="bg-card border border-border rounded-lg p-5 hover:bg-secondary/20 transition-colors cursor-pointer flex items-center justify-between"
+                    >
+                      <div>
+                        <h4 className="font-semibold text-foreground text-sm">{course.name}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">{course.description}</p>
+                      </div>
+                      <div className="text-right text-xs text-muted-foreground">
+                        Code: <strong className="text-foreground font-mono font-medium">{course.studentCode}</strong>
                       </div>
                     </div>
                   ))}
@@ -194,15 +481,14 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Quick Actions</h3>
-                <span className="text-xs text-zinc-500 font-semibold">Tools</span>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Quick Actions</h3>
               </div>
 
-              <div className="glass border border-white/5 rounded-xl p-5 shadow-xl space-y-4">
-                <button className="w-full rounded-xl border border-white/5 bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-200">Onboard Faculty Roster</button>
-                <button className="w-full rounded-xl border border-white/5 bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-200">Onboard Student Roster</button>
-                <button className="w-full rounded-xl border border-white/5 bg-white/5 px-4 py-3.5 text-left text-sm font-semibold text-zinc-200">Generate Reports</button>
+              <div className="bg-card border border-border rounded-lg p-6 space-y-3">
+                <button className="w-full rounded-md border border-border bg-card px-4 py-2.5 text-left text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer">Onboard Faculty Roster</button>
+                <button className="w-full rounded-md border border-border bg-card px-4 py-2.5 text-left text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer">Onboard Student Roster</button>
+                <button className="w-full rounded-md border border-border bg-card px-4 py-2.5 text-left text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer">Generate Reports</button>
               </div>
             </div>
           </div>
@@ -213,36 +499,36 @@ export default function AdminDashboard() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            <div className="glass border border-white/5 rounded-xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-emerald-400">Approved Faculty</h3>
-                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 text-[10px] font-bold text-emerald-300">{roster.faculties.length} Total</span>
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Approved Faculty</h3>
+                <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary">{roster.faculties.length} Total</span>
               </div>
               <div className="space-y-3">
-                {roster.faculties.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No approved faculty members yet.</p>}
+                {roster.faculties.length === 0 && <p className="text-xs text-muted-foreground py-4 text-center">No approved faculty members yet.</p>}
                 {roster.faculties.map((fac) => (
-                  <div key={fac._id} className="flex justify-between items-center rounded-lg border border-white/5 bg-white/5 p-3">
+                  <div key={fac._id} className="flex justify-between items-center rounded-md border border-border bg-secondary/10 p-3">
                     <div>
-                      <h4 className="font-bold text-sm text-white">{fac.name}</h4>
-                      <p className="text-xs text-zinc-400">{fac.email}</p>
+                      <h4 className="font-semibold text-xs text-foreground">{fac.name}</h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{fac.email}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="glass border border-white/5 rounded-xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-blue-400">Enrolled Students</h3>
-                <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-3 py-1 text-[10px] font-bold text-blue-300">{roster.students.length} Total</span>
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-border">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Enrolled Students</h3>
+                <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary">{roster.students.length} Total</span>
               </div>
               <div className="space-y-3">
-                {roster.students.length === 0 && <p className="text-xs text-zinc-500 py-4 text-center">No approved students yet.</p>}
+                {roster.students.length === 0 && <p className="text-xs text-muted-foreground py-4 text-center">No approved students yet.</p>}
                 {roster.students.map((stu) => (
-                  <div key={stu._id} className="flex justify-between items-center rounded-lg border border-white/5 bg-white/5 p-3">
+                  <div key={stu._id} className="flex justify-between items-center rounded-md border border-border bg-secondary/10 p-3">
                     <div>
-                      <h4 className="font-bold text-sm text-white">{stu.name}</h4>
-                      <p className="text-xs text-zinc-400">{stu.email}</p>
+                      <h4 className="font-semibold text-xs text-foreground">{stu.name}</h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{stu.email}</p>
                     </div>
                   </div>
                 ))}
@@ -255,53 +541,55 @@ export default function AdminDashboard() {
 
       {activeTab === 'departments' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="glass border border-white/5 rounded-xl p-6 text-center text-zinc-500">No departmental mock data. Integrate your real department records from the API.</div>
+          <div className="bg-card border border-border rounded-lg p-8 text-center text-xs text-muted-foreground">
+            No departmental records found. Integrate your real department records from the API.
           </div>
         </div>
       )}
 
       {activeTab === 'billing' && (
-        <div className="glass border border-white/5 rounded-xl p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Billing</h3>
-            <span className="text-xs text-zinc-500">Managed by platform</span>
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Billing</h3>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Managed by Platform</span>
           </div>
 
-          <div className="glass border border-white/5 rounded-xl p-8 text-center text-zinc-500">Billing and invoice history will appear here when connected to backend billing data.</div>
+          <div className="bg-secondary/10 border border-border rounded-md p-8 text-center text-xs text-muted-foreground">
+            Billing and invoice history will appear here when connected to backend billing data.
+          </div>
         </div>
       )}
 
       {activeTab === 'approvals' && (
         <div className="space-y-6">
-          <div className="glass border border-white/5 rounded-xl p-6 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6 pb-2 border-b border-border">
               <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-widest text-amber-400">Pending User Approvals</h3>
-                <p className="text-xs text-zinc-400 mt-1">Review and grant access to faculty and students registering for your institute.</p>
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pending User Approvals</h3>
+                <p className="text-[11px] text-muted-foreground mt-1">Review and grant access to faculty and students registering for your institute.</p>
               </div>
-              <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-3 py-1 text-xs font-bold text-amber-400">{pendingUsers.length} Pending</span>
+              <span className="rounded bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-medium text-primary">{pendingUsers.length} Pending</span>
             </div>
 
             {pendingUsers.length === 0 ? (
-              <div className="text-center py-12 rounded-xl border border-dashed border-white/10 bg-white/5">
-                <Shield className="h-10 w-10 text-zinc-500 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-zinc-400">All caught up!</p>
-                <p className="text-xs text-zinc-500 mt-1">No pending registrations waiting for your approval.</p>
+              <div className="text-center py-12 rounded-md border border-dashed border-border bg-secondary/10">
+                <Shield className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-xs font-semibold text-foreground">All caught up!</p>
+                <p className="text-[11px] text-muted-foreground mt-1">No pending registrations waiting for your approval.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {pendingUsers.map(user => (
-                  <div key={user._id} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4 hover:bg-white/10 transition-colors">
+                  <div key={user._id} className="flex items-center justify-between rounded-md border border-border bg-secondary/15 p-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20 text-amber-400 font-bold">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-semibold">
                         {user.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <h4 className="font-bold text-white text-sm">{user.name}</h4>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-xs text-zinc-400">{user.email}</p>
-                          <span className="text-[10px] text-zinc-500 px-1.5 py-0.5 rounded border border-zinc-700 font-bold uppercase">{user.role}</span>
+                        <h4 className="font-semibold text-xs text-foreground">{user.name}</h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[11px] text-muted-foreground">{user.email}</p>
+                          <span className="text-[9px] text-muted-foreground px-1.5 py-0.5 rounded border border-border bg-secondary font-medium uppercase">{user.role}</span>
                         </div>
                       </div>
                     </div>
@@ -322,7 +610,7 @@ export default function AdminDashboard() {
                             setUpdatingUserId(null);
                           }
                         }}
-                        className="rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-400 disabled:opacity-50 transition-colors"
+                        className="rounded-md bg-emerald-600 text-white hover:bg-emerald-700 px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition-colors cursor-pointer"
                       >
                         Approve
                       </button>
@@ -333,7 +621,6 @@ export default function AdminDashboard() {
                           if (!confirm("Are you sure you want to reject and remove this user?")) return;
                           setUpdatingUserId(user._id);
                           try {
-                            // Using the remove endpoint which is /api/admin/faculties/:id or students/:id
                             const endpoint = user.role === 'Faculty' ? `/api/admin/faculties/${user._id}` : `/api/admin/students/${user._id}`;
                             const res = await fetch(`http://localhost:5000${endpoint}`, {
                               method: 'DELETE',
@@ -344,7 +631,7 @@ export default function AdminDashboard() {
                             setUpdatingUserId(null);
                           }
                         }}
-                        className="rounded bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 px-3 py-1.5 text-xs font-bold text-rose-400 disabled:opacity-50 transition-colors"
+                        className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1.5 text-xs font-medium disabled:opacity-50 transition-colors cursor-pointer"
                       >
                         Reject
                       </button>
@@ -358,13 +645,13 @@ export default function AdminDashboard() {
       )}
 
       {activeTab === 'settings' && (
-        <div className="glass border border-white/5 rounded-xl p-6 shadow-xl space-y-6">
-          <div className="flex items-center justify-between border-b border-zinc-900 pb-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-widest text-zinc-400">Institutional Configurations</h3>
+        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-border pb-4">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Institutional Configurations</h3>
             {!isEditingSettings ? (
               <button 
                 onClick={() => { setEditForm(institute); setIsEditingSettings(true); }}
-                className="rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 px-3 py-1.5 text-xs font-bold transition-colors"
+                className="rounded-md border border-border bg-card hover:bg-secondary px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
               >
                 Edit Details
               </button>
@@ -373,7 +660,7 @@ export default function AdminDashboard() {
                 <button 
                   onClick={() => setIsEditingSettings(false)}
                   disabled={savingSettings}
-                  className="rounded-lg bg-white/5 text-zinc-300 hover:bg-white/10 px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-50"
+                  className="rounded-md border border-border hover:bg-secondary bg-card px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -403,7 +690,7 @@ export default function AdminDashboard() {
                     }
                   }}
                   disabled={savingSettings}
-                  className="rounded-lg bg-amber-500 text-black hover:bg-amber-400 px-3 py-1.5 text-xs font-black transition-colors disabled:opacity-50"
+                  className="rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
                 >
                   {savingSettings ? "Saving..." : "Save Changes"}
                 </button>
@@ -412,58 +699,58 @@ export default function AdminDashboard() {
           </div>
           
           <div className="grid gap-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-zinc-900 pb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-border pb-6">
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Legal Name</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Legal Name</label>
                 {isEditingSettings ? (
-                  <input type="text" value={editForm.legalName || ''} onChange={(e) => setEditForm({...editForm, legalName: e.target.value})} className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none" />
+                  <input type="text" value={editForm.legalName || ''} onChange={(e) => setEditForm({...editForm, legalName: e.target.value})} className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" />
                 ) : (
-                  <div className="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3 text-sm font-semibold text-white">
+                  <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground">
                     {institute?.legalName || 'N/A'}
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Brand Name</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Brand Name</label>
                 {isEditingSettings ? (
-                  <input type="text" value={editForm.brandName || ''} onChange={(e) => setEditForm({...editForm, brandName: e.target.value})} className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none" />
+                  <input type="text" value={editForm.brandName || ''} onChange={(e) => setEditForm({...editForm, brandName: e.target.value})} className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" />
                 ) : (
-                  <div className="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3 text-sm font-semibold text-white">
+                  <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground">
                     {institute?.brandName || 'N/A'}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-zinc-900 pb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-border pb-6">
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Contact Email</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Contact Email</label>
                 {isEditingSettings ? (
-                  <input type="email" value={editForm.email || ''} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none" />
+                  <input type="email" value={editForm.email || ''} onChange={(e) => setEditForm({...editForm, email: e.target.value})} className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" />
                 ) : (
-                  <div className="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3 text-sm font-semibold text-white">
+                  <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground">
                     {institute?.email || 'N/A'}
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Phone Number</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Phone Number</label>
                 {isEditingSettings ? (
-                  <input type="tel" value={editForm.phoneNumber || ''} onChange={(e) => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none" />
+                  <input type="tel" value={editForm.phoneNumber || ''} onChange={(e) => setEditForm({...editForm, phoneNumber: e.target.value})} className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" />
                 ) : (
-                  <div className="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3 text-sm font-semibold text-white">
+                  <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground">
                     {institute?.phoneNumber || 'N/A'}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="border-b border-zinc-900 pb-6">
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Physical Address</label>
+            <div className="border-b border-border pb-6">
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Physical Address</label>
               {isEditingSettings ? (
-                <textarea value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} rows={2} className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none resize-none" />
+                <textarea value={editForm.address || ''} onChange={(e) => setEditForm({...editForm, address: e.target.value})} rows={2} className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none resize-none" />
               ) : (
-                <div className="rounded-lg border border-zinc-900 bg-zinc-900/30 p-3 text-sm font-semibold text-white whitespace-pre-wrap">
+                <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground whitespace-pre-wrap">
                   {institute?.address || 'N/A'}
                 </div>
               )}
@@ -471,26 +758,26 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Platform Status</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`inline-block h-2.5 w-2.5 rounded-full ${institute?.status === 'Active' ? 'bg-emerald-500' : institute?.status === 'Pending' ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'}`} />
-                  <span className="text-sm font-bold text-white uppercase">{institute?.status || 'Unknown'}</span>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Platform Status</label>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className={`inline-block h-2 w-2 rounded-full ${institute?.status === 'Active' ? 'bg-emerald-500' : institute?.status === 'Pending' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+                  <span className="text-xs font-semibold text-foreground uppercase">{institute?.status || 'Unknown'}</span>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1.5">Billing Plan</label>
+                <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Billing Plan</label>
                 {isEditingSettings ? (
                   <select 
                     value={editForm.billingPlan || 'Basic'} 
                     onChange={e => setEditForm({...editForm, billingPlan: e.target.value})}
-                    className="w-full bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 text-sm font-bold text-purple-400 focus:outline-none focus:border-purple-500"
+                    className="w-full bg-card border border-input rounded-md px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
                   >
                     {plans.map(p => (
                       <option key={p.planCode} value={p.planCode}>{p.name} ({p.price})</option>
                     ))}
                   </select>
                 ) : (
-                  <div className="rounded-lg border border-zinc-900 bg-purple-500/10 p-3 text-sm font-bold text-purple-400">
+                  <div className="rounded-md border border-primary/20 bg-primary/10 p-3 text-xs text-primary font-medium">
                     {plans.find(p => p.planCode === institute?.billingPlan)?.name || institute?.billingPlan || 'Basic'} Plan
                   </div>
                 )}
@@ -499,6 +786,75 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Create Course Modal */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border w-full max-w-md rounded-xl shadow-xl overflow-hidden">
+            <div className="border-b border-border p-6 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-foreground">Create New Course</h2>
+              <button onClick={() => setIsCreateOpen(false)} className="rounded hover:bg-secondary p-1">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateCourse}>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Course Code (Unique for Institute)</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={createCourseCode} 
+                    onChange={e => setCreateCourseCode(e.target.value)} 
+                    placeholder="e.g. CS-101"
+                    className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Course Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={createName} 
+                    onChange={e => setCreateName(e.target.value)} 
+                    placeholder="e.g. Introduction to Computer Science"
+                    className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-muted-foreground mb-1">Description</label>
+                  <textarea 
+                    required 
+                    rows={3}
+                    value={createDesc} 
+                    onChange={e => setCreateDesc(e.target.value)} 
+                    placeholder="Provide a comprehensive course description."
+                    className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary resize-none"
+                  />
+                </div>
+              </div>
+              <div className="border-t border-border bg-secondary/5 p-6 flex justify-end gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsCreateOpen(false)}
+                  className="rounded border border-border bg-card hover:bg-secondary px-4 py-2 text-xs font-medium text-foreground cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={creating}
+                  className="rounded bg-primary hover:bg-primary/90 px-4 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50 cursor-pointer"
+                >
+                  {creating ? 'Creating...' : 'Create Course'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Course Detail Modal removed */}
     </div>
   );
 }

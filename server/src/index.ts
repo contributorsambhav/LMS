@@ -20,6 +20,9 @@ app.use(cors());
 // Parse incoming JSON requests
 app.use(express.json());
 
+import path from "path";
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/super", superRoutes);

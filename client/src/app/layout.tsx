@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Inter } from "next/font/google";
+import { ThemeProvider } from "../lib/theme-provider";
 import "./globals.css";
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-});
 
 const inter = Inter({
   variable: "--font-inter",
@@ -25,9 +20,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${inter.variable} h-full dark`}>
-      <body className="min-h-full flex flex-col font-sans antialiased selection:bg-purple-500 selection:text-white">
-        {children}
+    <html lang="en" className={`${inter.variable} h-full`} suppressHydrationWarning>
+      <body className="min-h-full flex flex-col font-sans antialiased selection:bg-blue-600/20 selection:text-blue-900 dark:selection:text-blue-100">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

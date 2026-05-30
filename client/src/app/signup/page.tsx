@@ -1,8 +1,9 @@
 'use client';
 
-import { AlertTriangle, BookOpen, ChevronLeft, GraduationCap, Info, Sparkles, User, Users } from 'lucide-react';
+import { AlertTriangle, BookOpen, ChevronLeft, Sparkles, User, Users } from 'lucide-react';
 import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 function SignupFormContent() {
   const router = useRouter();
@@ -11,7 +12,6 @@ function SignupFormContent() {
   const initialRole = (searchParams.get('role') || 'student') as 'student' | 'faculty' | 'admin';
   const [selectedRole, setSelectedRole] = useState<'student' | 'faculty' | 'admin'>(initialRole);
   const [loading, setLoading] = useState(false);
-  const allowDevSandbox = process.env.NEXT_PUBLIC_ALLOW_DEV_SANDBOX === 'true';
 
   // Onboarding form states
   const [legalName, setLegalName] = useState('');
@@ -77,19 +77,18 @@ function SignupFormContent() {
     router.push(`/api/auth/google?${query}&action=signup`);
   };
 
-
   return (
-    <div className="w-full max-w-lg">
+    <div className="w-full max-w-md">
       {/* Validation Error Alert Box */}
       {validationError && (
-        <div className="mb-6 overflow-hidden rounded-xl border border-rose-500/20 bg-rose-500/10 p-5 backdrop-blur-md">
+        <div className="mb-6 rounded-md border border-destructive/20 bg-destructive/10 p-4 text-left">
           <div className="flex gap-3">
-            <AlertTriangle className="h-6 w-6 shrink-0 text-rose-400" />
+            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
             <div>
-              <h3 className="font-semibold text-rose-200">Registration Incomplete</h3>
-              <p className="mt-1 text-sm leading-relaxed text-rose-300/90">{validationError}</p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => setValidationError('')} className="rounded-lg border border-rose-500/30 px-3.5 py-1.5 text-xs font-medium text-rose-300 transition-colors hover:bg-white/5">
+              <h3 className="font-semibold text-destructive text-sm">Registration Incomplete</h3>
+              <p className="mt-1 text-xs leading-relaxed text-destructive/90">{validationError}</p>
+              <div className="mt-3">
+                <button onClick={() => setValidationError('')} className="rounded border border-destructive/30 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors cursor-pointer">
                   Dismiss
                 </button>
               </div>
@@ -98,29 +97,29 @@ function SignupFormContent() {
         </div>
       )}
 
-      <div className="glass border border-white/10 rounded-2xl p-8 md:p-10 shadow-2xl relative overflow-hidden">
-        {/* Glow effects */}
-        <div className="absolute -top-24 -left-24 h-48 w-48 rounded-full bg-purple-500/15 blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 h-48 w-48 rounded-full bg-blue-500/15 blur-3xl" />
+      <div className="bg-card border border-border rounded-lg p-8 shadow-sm relative">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
 
         <div className="relative">
           {/* Back button */}
-          <button onClick={() => router.push('/login')} className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors mb-6 group">
+          <button onClick={() => router.push('/login')} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6 group cursor-pointer">
             <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" /> Back to Login
           </button>
 
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-purple-600 to-blue-500 shadow-lg shadow-purple-500/20">
-              <Sparkles className="h-7 w-7 text-white" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20">
+              <Sparkles className="h-6 w-6" />
             </div>
 
-            <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-white font-display">Create Your LMS Account</h2>
-            <p className="mt-2 text-sm text-zinc-400 max-w-sm">Complete registration using your single sign-on Google account.</p>
+            <h2 className="mt-6 text-xl font-semibold tracking-tight text-foreground font-sans">Create Your LMS Account</h2>
+            <p className="mt-2 text-xs text-muted-foreground max-w-xs">Complete registration using your single sign-on Google account.</p>
           </div>
 
           {/* Role selector card list */}
-          <div className="mt-8 space-y-3">
-            <label className="text-xs font-semibold tracking-wider text-zinc-400 uppercase">Choose Your Registration Path</label>
+          <div className="mt-8 space-y-2">
+            <label className="text-[10px] font-medium tracking-wider text-muted-foreground uppercase">Choose Your Registration Path</label>
 
             {[
               {
@@ -143,14 +142,23 @@ function SignupFormContent() {
               }
             ].map((role) => {
               const Icon = role.icon;
+              const isSelected = selectedRole === role.id;
               return (
-                <button key={role.id} onClick={() => setSelectedRole(role.id as any)} className={`flex w-full items-start gap-4 rounded-xl border p-4 text-left transition-all duration-200 ${selectedRole === role.id ? 'border-purple-500 bg-purple-500/10 text-white shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'border-white/5 bg-white/5 text-zinc-400 hover:border-white/10 hover:bg-white/10 hover:text-white'}`}>
-                  <div className={`mt-0.5 rounded-lg p-2 ${selectedRole === role.id ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-zinc-500'}`}>
-                    <Icon className="h-5 w-5" />
+                <button 
+                  key={role.id} 
+                  onClick={() => setSelectedRole(role.id as any)} 
+                  className={`flex w-full items-start gap-4 rounded-md border p-4 text-left transition-colors cursor-pointer ${
+                    isSelected 
+                      ? 'border-primary bg-primary/10 text-foreground' 
+                      : 'border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  }`}
+                >
+                  <div className={`mt-0.5 rounded p-1.5 ${isSelected ? 'bg-primary/25 text-primary' : 'bg-secondary text-muted-foreground'}`}>
+                    <Icon className="h-4 w-4" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-white">{role.title}</h4>
-                    <p className="mt-1 text-xs text-zinc-400 leading-relaxed">{role.description}</p>
+                    <h4 className="font-semibold text-xs text-foreground">{role.title}</h4>
+                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">{role.description}</p>
                   </div>
                 </button>
               );
@@ -161,59 +169,59 @@ function SignupFormContent() {
           <div className="mt-6 space-y-4">
             {selectedRole === 'admin' ? (
               <>
-                <div className="border-t border-white/5 pt-4 mt-4">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Institute Registry Info</p>
+                <div className="border-t border-border pt-4 mt-4">
+                  <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">Institute Registry Info</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Legal Registered Name</label>
+                  <label className="text-xs text-muted-foreground">Legal Registered Name</label>
                   <input
                     type="text"
                     required
                     value={legalName}
                     onChange={(e) => setLegalName(e.target.value)}
                     placeholder="e.g. Acme Educational Trust"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Public Brand Name</label>
+                  <label className="text-xs text-muted-foreground">Public Brand Name</label>
                   <input
                     type="text"
                     required
                     value={brandName}
                     onChange={(e) => setBrandName(e.target.value)}
                     placeholder="e.g. Acme Institute of Technology"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Contact Phone Number</label>
+                  <label className="text-xs text-muted-foreground">Contact Phone Number</label>
                   <input
                     type="tel"
                     required
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="e.g. +1 (555) 019-2834"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Physical Address</label>
+                  <label className="text-xs text-muted-foreground">Physical Address</label>
                   <textarea
                     required
                     rows={2}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. 100 Innovation Way, Suite 400, Tech City, TC 94016"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all resize-none"
+                    placeholder="e.g. 100 Innovation Way, Suite 400..."
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Select Billing Plan</label>
+                  <label className="text-xs text-muted-foreground">Select Billing Plan</label>
                   <select
                     value={billingPlan}
                     onChange={(e) => setBillingPlan(e.target.value as any)}
-                    className="w-full mt-1.5 rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white focus:border-purple-500 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary outline-none"
                   >
                     <option value="Basic">Basic Plan ($299/mo)</option>
                     <option value="Premium">Premium Plan ($599/mo)</option>
@@ -224,76 +232,90 @@ function SignupFormContent() {
               </>
             ) : (
               <>
-                <div className="border-t border-white/5 pt-4 mt-4">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Personal Details</p>
+                <div className="border-t border-border pt-4 mt-4">
+                  <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">Personal Details</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Full Name</label>
+                  <label className="text-xs text-muted-foreground">Full Name</label>
                   <input
                     type="text"
                     required
                     value={legalName}
                     onChange={(e) => setLegalName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Contact Phone Number</label>
+                  <label className="text-xs text-muted-foreground">Contact Phone Number</label>
                   <input
                     type="tel"
                     required
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="e.g. +1 (555) 019-2834"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Physical Address</label>
+                  <label className="text-xs text-muted-foreground">Physical Address</label>
                   <textarea
                     required
                     rows={2}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. 100 Innovation Way, Suite 400, Tech City, TC 94016"
-                    className="w-full mt-1.5 rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-purple-500 focus:bg-white/10 outline-none transition-all resize-none"
+                    placeholder="e.g. 100 Innovation Way, Suite 400..."
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                   />
                 </div>
-                <div className="border-t border-white/5 pt-4 mt-4">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Select Your Institution</p>
+                <div className="border-t border-border pt-4 mt-4">
+                  <p className="text-[10px] font-semibold text-primary uppercase tracking-wider">Select Your Institution</p>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-zinc-400">Affiliated Institute</label>
+                  <label className="text-xs text-muted-foreground">Affiliated Institute</label>
                   <select
                     value={instituteId}
                     onChange={(e) => setInstituteId(e.target.value)}
-                    className="w-full mt-1.5 rounded-xl border border-white/10 bg-zinc-900 px-4 py-3 text-sm text-white focus:border-purple-500 outline-none transition-all"
+                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary outline-none"
                   >
                     {selectedRole === 'student' && (
                       <option value="none">Unaffiliated (Independent Learner)</option>
                     )}
                     {activeInstitutes.map((inst) => (
                       <option key={inst._id} value={inst._id}>
-                        {inst.name}
+                        {inst.brandName || inst.name} — ID: {inst._id}
                       </option>
                     ))}
                     {activeInstitutes.length === 0 && selectedRole !== 'student' && (
-                      <option value="" disabled className="text-zinc-500">No approved institutes available</option>
+                      <option value="" disabled className="text-muted-foreground">No approved institutes available</option>
                     )}
                   </select>
+                  {selectedRole === 'faculty' && instituteId && instituteId !== 'none' && (
+                    <p className="mt-1.5 text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                      ⚠️ Your affiliation request will be sent to the Institute Admin for approval. You can log in immediately but institute features require admin approval.
+                    </p>
+                  )}
+                  {selectedRole === 'faculty' && activeInstitutes.length === 0 && (
+                    <p className="mt-1.5 text-[10px] text-destructive leading-relaxed">
+                      No active institutes found. Contact your institution to get listed on the platform.
+                    </p>
+                  )}
                 </div>
               </>
             )}
           </div>
 
           {/* Action Trigger */}
-          <div className="mt-8 space-y-3">
-            <button onClick={handleSignup} disabled={loading} className="group relative flex w-full items-center justify-center gap-3 rounded-xl bg-white px-5 py-4 text-sm font-semibold text-zinc-900 transition-all hover:bg-zinc-100 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none">
+          <div className="mt-8">
+            <button 
+              onClick={handleSignup} 
+              disabled={loading} 
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-card border border-border px-4 py-2.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+            >
               {loading ? (
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-900 border-t-transparent" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
               ) : (
-                <svg className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
@@ -304,9 +326,9 @@ function SignupFormContent() {
             </button>
           </div>
 
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-zinc-500 border-t border-white/5 pt-6">
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted-foreground border-t border-border pt-6">
             <span>Already have an account?</span>
-            <button onClick={() => router.push('/login')} className="font-semibold text-purple-400 hover:text-purple-300 transition-colors">
+            <button onClick={() => router.push('/login')} className="font-medium text-primary hover:underline cursor-pointer">
               Sign In Here
             </button>
           </div>
@@ -318,12 +340,12 @@ function SignupFormContent() {
 
 export default function SignupPage() {
   return (
-    <div className="mesh-bg min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 font-sans">
+    <div className="bg-background min-h-screen flex flex-col items-center justify-center p-6 sm:p-8 font-sans">
       <Suspense
         fallback={
-          <div className="glass border border-white/10 rounded-2xl p-10 flex flex-col items-center justify-center w-full max-w-lg text-white">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
-            <span className="mt-4 text-sm font-semibold text-zinc-400">Loading signup screen...</span>
+          <div className="bg-card border border-border rounded-lg p-10 flex flex-col items-center justify-center w-full max-w-md text-foreground">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="mt-4 text-xs text-muted-foreground">Loading signup screen...</span>
           </div>
         }
       >
