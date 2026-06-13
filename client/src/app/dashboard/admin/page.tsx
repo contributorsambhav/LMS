@@ -63,6 +63,7 @@ export default function AdminDashboard() {
   const [newSessionLiveLink, setNewSessionLiveLink] = useState('');
   const [newSessionRecordedVideo, setNewSessionRecordedVideo] = useState('');
   const [newSessionFiles, setNewSessionFiles] = useState<FileList | null>(null);
+  const [autoGenerateZoom, setAutoGenerateZoom] = useState(true);
   const [addingSession, setAddingSession] = useState(false);
   const [sessionError, setSessionError] = useState('');
 
@@ -235,7 +236,10 @@ export default function AdminDashboard() {
 
   const handleAddSession = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCourse || !newSessionTitle || !newSessionStart || !newSessionEnd || !newSessionLiveLink || !session?.token) {
+    const isZoomActive = !!(institute?.zoomAccountId && institute?.zoomClientId && institute?.zoomClientSecret);
+    const requiresLiveLink = !isZoomActive || !autoGenerateZoom;
+
+    if (!selectedCourse || !newSessionTitle || !newSessionStart || !newSessionEnd || (requiresLiveLink && !newSessionLiveLink) || !session?.token) {
       setSessionError('Please fill in all mandatory fields.');
       return;
     }
@@ -249,11 +253,17 @@ export default function AdminDashboard() {
       formData.append('description', newSessionDesc);
       formData.append('startTime', newSessionStart);
       formData.append('endTime', newSessionEnd);
-      formData.append('liveLink', newSessionLiveLink);
       formData.append('recordedVideo', newSessionRecordedVideo);
+      formData.append('autoGenerateZoom', String(isZoomActive && autoGenerateZoom));
 
-      for (let i = 0; i < newSessionFiles.length; i++) {
-        formData.append('pdfs', newSessionFiles[i]);
+      if (!isZoomActive || !autoGenerateZoom) {
+        formData.append('liveLink', newSessionLiveLink);
+      }
+
+      if (newSessionFiles) {
+        for (let i = 0; i < newSessionFiles.length; i++) {
+          formData.append('pdfs', newSessionFiles[i]);
+        }
       }
 
       const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/sessions`, {
@@ -778,9 +788,69 @@ export default function AdminDashboard() {
                   </select>
                 ) : (
                   <div className="rounded-md border border-primary/20 bg-primary/10 p-3 text-xs text-primary font-medium">
-                    {plans.find(p => p.planCode === institute?.billingPlan)?.name || institute?.billingPlan || 'Basic'} Plan
+                    {(() => {
+                      const matchedPlan = plans.find(p => p.planCode === institute?.billingPlan);
+                      if (matchedPlan) return matchedPlan.name;
+                      const rawPlan = institute?.billingPlan || 'Basic';
+                      return rawPlan.toLowerCase().includes('plan') ? rawPlan : `${rawPlan} Plan`;
+                    })()}
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Zoom Integration Section */}
+            <div className="border-t border-border pt-6 mt-2">
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4">Zoom Server-to-Server OAuth Integration</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Zoom Account ID</label>
+                  {isEditingSettings ? (
+                    <input 
+                      type="text" 
+                      value={editForm.zoomAccountId || ''} 
+                      onChange={(e) => setEditForm({...editForm, zoomAccountId: e.target.value})} 
+                      placeholder="Account ID"
+                      className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" 
+                    />
+                  ) : (
+                    <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground truncate">
+                      {institute?.zoomAccountId || 'Not Configured'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Zoom Client ID</label>
+                  {isEditingSettings ? (
+                    <input 
+                      type="text" 
+                      value={editForm.zoomClientId || ''} 
+                      onChange={(e) => setEditForm({...editForm, zoomClientId: e.target.value})} 
+                      placeholder="Client ID"
+                      className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" 
+                    />
+                  ) : (
+                    <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground truncate">
+                      {institute?.zoomClientId || 'Not Configured'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Zoom Client Secret</label>
+                  {isEditingSettings ? (
+                    <input 
+                      type="password" 
+                      value={editForm.zoomClientSecret || ''} 
+                      onChange={(e) => setEditForm({...editForm, zoomClientSecret: e.target.value})} 
+                      placeholder="Client Secret"
+                      className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary focus:outline-none" 
+                    />
+                  ) : (
+                    <div className="rounded-md border border-border bg-secondary/10 p-3 text-xs text-foreground truncate">
+                      {institute?.zoomClientSecret ? '••••••••••••••••' : 'Not Configured'}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

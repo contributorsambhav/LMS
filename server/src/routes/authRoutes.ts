@@ -8,7 +8,8 @@ import {
   updateInstitute, 
   updateProfile,
   getPendingFacultyAffiliations,
-  updateFacultyAffiliation
+  updateFacultyAffiliation,
+  getMe
 } from "../controllers/authController";
 import { authenticate } from "../middleware/auth";
 
@@ -21,6 +22,7 @@ router.post("/super-login", superCodeLogin);
 router.get("/active-institutes", getActiveInstitutes);
 router.put("/update-institute", authenticate, updateInstitute);
 router.patch("/update-profile", authenticate, updateProfile);
+router.get("/me", authenticate, getMe);
 
 // Faculty affiliation approvals
 router.get("/faculty/pending-affiliations", authenticate, getPendingFacultyAffiliations);

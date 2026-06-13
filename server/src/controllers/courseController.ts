@@ -5,6 +5,8 @@ import { Enrollment } from "../models/Enrollment";
 import { User } from "../models/User";
 import { Session } from "../models/Session";
 import { Material } from "../models/Material";
+import { Institute } from "../models/Institute";
+import { createZoomMeeting, deleteZoomMeeting } from "../services/zoomService";
 
 // Helper to generate unique 6-character alphanumeric codes
 const generateUniqueCode = async (): Promise<string> => {
@@ -322,7 +324,7 @@ export const updateEnrollmentStatus = async (req: AuthenticatedRequest, res: Res
 export const addCourseSession = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { courseId } = req.params;
-    const { title, description, startTime, endTime, liveLink, recordedVideo, facultyId } = req.body;
+    const { title, description, startTime, endTime, liveLink, recordedVideo, facultyId, autoGenerateZoom } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const instituteId = req.user?.instituteId;
@@ -331,8 +333,14 @@ export const addCourseSession = async (req: AuthenticatedRequest, res: Response)
       return res.status(401).json({ message: "Authentication failed: Missing user details." });
     }
 
-    if (!title || !startTime || !endTime || !liveLink) {
-      return res.status(400).json({ message: "Session title, startTime, endTime, and liveLink (Zoom link) are required." });
+    if (!title || !startTime || !endTime) {
+      return res.status(400).json({ message: "Session title, startTime, and endTime are required." });
+    }
+
+    const isAutoZoom = autoGenerateZoom === true || autoGenerateZoom === "true";
+
+    if (!isAutoZoom && !liveLink) {
+      return res.status(400).json({ message: "liveLink (Zoom link) is required when auto-generation is disabled." });
     }
 
     const files = (req.files as Express.Multer.File[]) || [];
@@ -363,6 +371,55 @@ export const addCourseSession = async (req: AuthenticatedRequest, res: Response)
 
     const attachments = files.map(file => "/uploads/" + file.filename);
 
+    let sessionLiveLink = liveLink;
+    let zoomMeetingId: number | undefined;
+    let zoomStartUrl: string | undefined;
+    let zoomPassword: string | undefined;
+
+    if (isAutoZoom) {
+      const institute = await Institute.findById(course.instituteId);
+      if (!institute || !institute.zoomAccountId || !institute.zoomClientId || !institute.zoomClientSecret) {
+        return res.status(400).json({
+          message: "Failed to auto-generate Zoom meeting. Please check the Zoom credentials in the Settings page or try again later."
+        });
+      }
+
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      const duration = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+
+      try {
+        const zoomMeeting = await createZoomMeeting(
+          title,
+          start.toISOString(),
+          duration,
+          {
+            zoomAccountId: institute.zoomAccountId,
+            zoomClientId: institute.zoomClientId,
+            zoomClientSecret: institute.zoomClientSecret
+          }
+        );
+        sessionLiveLink = zoomMeeting.joinUrl;
+        zoomMeetingId = zoomMeeting.meetingId;
+        zoomStartUrl = zoomMeeting.startUrl;
+        zoomPassword = zoomMeeting.password;
+      } catch (err: any) {
+        const zoomError = err.response?.data;
+        console.error("Zoom meeting creation failed:", zoomError || err);
+        
+        let errorMessage = "Failed to auto-generate Zoom meeting. Please check the Zoom credentials in the Settings page or try again later.";
+        if (zoomError && zoomError.reason) {
+          errorMessage = `Failed to auto-generate Zoom meeting. Zoom API error: ${zoomError.reason} (${zoomError.error || 'unknown_error'}). Please check your credentials and make sure your Server-to-Server OAuth app is activated in the Zoom App Marketplace.`;
+        } else if (zoomError && zoomError.message) {
+          errorMessage = `Failed to auto-generate Zoom meeting. Zoom API error: ${zoomError.message}. Please check the Zoom credentials in the Settings page.`;
+        }
+
+        return res.status(400).json({
+          message: errorMessage
+        });
+      }
+    }
+
     const session = new Session({
       courseId,
       facultyId: facultyId ? facultyId : null,
@@ -370,7 +427,10 @@ export const addCourseSession = async (req: AuthenticatedRequest, res: Response)
       description,
       startTime: new Date(startTime),
       endTime: new Date(endTime),
-      liveLink,
+      liveLink: sessionLiveLink,
+      zoomMeetingId,
+      zoomStartUrl,
+      zoomPassword,
       recordedVideo,
       attachments
     });
@@ -799,6 +859,30 @@ export const deleteCourse = async (req: AuthenticatedRequest, res: Response) => 
 
     // Delete Course
     await Course.findByIdAndDelete(courseId);
+    // Clean up Zoom meetings associated with this course's sessions
+    try {
+      const institute = await Institute.findById(course.instituteId);
+      if (institute && institute.zoomAccountId && institute.zoomClientId && institute.zoomClientSecret) {
+        const zoomCredentials = {
+          zoomAccountId: institute.zoomAccountId,
+          zoomClientId: institute.zoomClientId,
+          zoomClientSecret: institute.zoomClientSecret
+        };
+        const zoomSessions = await Session.find({ courseId, zoomMeetingId: { $exists: true, $ne: null } });
+        for (const sess of zoomSessions) {
+          if (sess.zoomMeetingId) {
+            try {
+              await deleteZoomMeeting(sess.zoomMeetingId, zoomCredentials);
+            } catch (err) {
+              console.error(`Failed to delete Zoom meeting ${sess.zoomMeetingId}:`, err);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error cleaning up Zoom meetings:", err);
+    }
+
     // Delete Enrollments
     await Enrollment.deleteMany({ courseId });
     // Delete Sessions
@@ -1071,6 +1155,51 @@ export const getUpcomingSessions = async (req: AuthenticatedRequest, res: Respon
     return res.status(200).json(sessions);
   } catch (error: any) {
     console.error("Get upcoming sessions error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
+export const getAllMySessions = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const instituteId = req.user?.instituteId;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({ message: "Authentication failed: Missing user details." });
+    }
+
+    let queryCourseIds: any[] = [];
+
+    if (userRole === "InstituteAdmin") {
+      if (!instituteId) {
+        return res.status(200).json([]);
+      }
+      const courses = await Course.find({ instituteId });
+      queryCourseIds = courses.map(c => c._id);
+    } else {
+      const enrollments = await Enrollment.find({
+        userId,
+        status: "Approved"
+      });
+      queryCourseIds = enrollments.map(e => e.courseId);
+    }
+
+    if (queryCourseIds.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // Retrieve all sessions (past + future)
+    const sessions = await Session.find({
+      courseId: { $in: queryCourseIds }
+    })
+    .populate("courseId", "name courseCode")
+    .populate("facultyId", "name email")
+    .sort({ startTime: 1 });
+
+    return res.status(200).json(sessions);
+  } catch (error: any) {
+    console.error("Get all sessions error:", error);
     return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
 };

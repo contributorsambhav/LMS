@@ -13,7 +13,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-export const authenticate = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authenticate = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -24,8 +24,20 @@ export const authenticate = (req: AuthenticatedRequest, res: Response, next: Nex
 
   try {
     const jwtSecret = process.env.JWT_SECRET || "super_fallback_jwt_secret_lumenlms";
-    const decoded = jwt.verify(token, jwtSecret) as AuthenticatedRequest["user"];
-    req.user = decoded;
+    const decoded = jwt.verify(token, jwtSecret) as any;
+    
+    const user = await User.findById(decoded.id || decoded.userId);
+    if (!user) {
+      return res.status(401).json({ message: "Authentication failed: User not found." });
+    }
+
+    req.user = {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role as any,
+      instituteId: user.instituteId ? user.instituteId.toString() : null
+    };
     next();
   } catch (error) {
     return res.status(401).json({ message: "Authentication failed: Invalid or expired token." });

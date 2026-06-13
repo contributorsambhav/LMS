@@ -478,3 +478,32 @@ export const updateProfile = async (req: any, res: Response) => {
     res.status(500).json({ message: "Failed to update profile." });
   }
 };
+
+export const getMe = async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const user = await User.findById(userId)
+      .select("-password")
+      .populate("instituteId");
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const userObj = user.toObject() as any;
+    if (userObj.instituteId) {
+      const inst = userObj.instituteId as any;
+      userObj.isZoomConfigured = !!(inst.zoomAccountId && inst.zoomClientId && inst.zoomClientSecret);
+      // Remove Zoom credentials from user profile payload for security
+      delete inst.zoomAccountId;
+      delete inst.zoomClientId;
+      delete inst.zoomClientSecret;
+    } else {
+      userObj.isZoomConfigured = false;
+    }
+
+    return res.status(200).json(userObj);
+  } catch (error: any) {
+    console.error("getMe error:", error);
+    return res.status(500).json({ message: "Failed to fetch user details." });
+  }
+};

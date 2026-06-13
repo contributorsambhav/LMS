@@ -10,6 +10,7 @@ export type User = {
   token?: string;
   id?: string;
   instituteId?: string | null;
+  status?: string;
 };
 
 const UserContext = createContext<User | null>(null);

@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '../../../../lib/session';
 import { 
-  ArrowLeft, BookOpen, Calendar, Users, FileText, Plus, Trash2, Edit, 
+  ArrowLeft, BookOpen, Calendar, LayoutList, Users, FileText, Plus, Trash2, Edit, 
   Copy, Check, ExternalLink, Video, Clock, UserCheck, UserMinus, 
   AlertCircle, CheckCircle2, FileUp, Sparkles, ShieldAlert 
 } from 'lucide-react';
+import SessionCalendar from '../../../../components/SessionCalendar';
 
 export default function CourseDetailsPage() {
   const params = useParams();
@@ -32,6 +33,7 @@ export default function CourseDetailsPage() {
 
   // UI state
   const [activeTab, setActiveTab] = useState<'sessions' | 'materials' | 'roster'>('sessions');
+  const [sessionView, setSessionView] = useState<'list' | 'calendar'>('list');
   const [isCopied, setIsCopied] = useState<Record<string, boolean>>({});
   
   // Modal / Form toggle states
@@ -60,6 +62,8 @@ export default function CourseDetailsPage() {
   const [sessionError, setSessionError] = useState('');
   const [sessionSuccess, setSessionSuccess] = useState('');
   const [sessionSubmitting, setSessionSubmitting] = useState(false);
+  const [autoGenerateZoom, setAutoGenerateZoom] = useState(true);
+  const [isZoomActive, setIsZoomActive] = useState(false);
 
   // Form states - Upload Material
   const [materialTitle, setMaterialTitle] = useState('');
@@ -161,6 +165,16 @@ export default function CourseDetailsPage() {
         if (instituteFacultyRes.ok) setInstituteFaculty(await instituteFacultyRes.json());
       }
 
+      // 8. Fetch user profile / check Zoom configuration status
+      const profileRes = await fetch("http://localhost:5000/api/auth/me", {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (profileRes.ok) {
+        const profile = await profileRes.json();
+        setIsZoomActive(!!profile.isZoomConfigured);
+        setAutoGenerateZoom(!!profile.isZoomConfigured);
+      }
+
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'An error occurred while loading this course.');
@@ -235,8 +249,12 @@ export default function CourseDetailsPage() {
   const handleAddSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.token) return;
-    if (!sessionTitle || !sessionStart || !sessionEnd || !sessionLiveLink) {
+    if (!sessionTitle || !sessionStart || !sessionEnd) {
       setSessionError('Please fill in all mandatory fields.');
+      return;
+    }
+    if (!autoGenerateZoom && !sessionLiveLink) {
+      setSessionError('Please provide a Live Link or enable Zoom auto-generation.');
       return;
     }
     setSessionError('');
@@ -248,7 +266,10 @@ export default function CourseDetailsPage() {
     formData.append('description', sessionDesc);
     formData.append('startTime', sessionStart);
     formData.append('endTime', sessionEnd);
-    formData.append('liveLink', sessionLiveLink);
+    formData.append('autoGenerateZoom', String(autoGenerateZoom));
+    if (!autoGenerateZoom) {
+      formData.append('liveLink', sessionLiveLink);
+    }
     formData.append('recordedVideo', sessionVideo);
     if (sessionFaculty) formData.append('facultyId', sessionFaculty);
     
@@ -269,7 +290,7 @@ export default function CourseDetailsPage() {
       if (!res.ok) {
         setSessionError(data.message || 'Failed to schedule session.');
       } else {
-        setSessionSuccess('Lecture session scheduled successfully!');
+        setSessionSuccess(data.message || 'Lecture session scheduled successfully!');
         // Reset form
         setSessionTitle('');
         setSessionDesc('');
@@ -277,6 +298,7 @@ export default function CourseDetailsPage() {
         setSessionVideo('');
         setSessionFaculty('');
         setSessionFiles(null);
+        setAutoGenerateZoom(true);
         // Refresh
         fetchCourseData();
         setTimeout(() => setShowAddSessionModal(false), 1200);
@@ -636,23 +658,46 @@ export default function CourseDetailsPage() {
                 <h3 className="text-sm font-bold text-foreground">Lecture Calendar</h3>
                 <p className="text-xs text-muted-foreground">List of upcoming and past classroom lectures.</p>
               </div>
-              {(isAdmin || isFaculty) && (
-                <button 
-                  onClick={() => {
-                    const now = new Date();
-                    setSessionStart(now.toISOString().slice(0, 16));
-                    setSessionEnd(new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16));
-                    setShowAddSessionModal(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" /> Schedule Session
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {/* View Toggle */}
+                <div className="flex items-center bg-secondary/30 border border-border rounded-md p-0.5">
+                  <button
+                    onClick={() => setSessionView('list')}
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-semibold transition-colors cursor-pointer ${
+                      sessionView === 'list' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <LayoutList className="h-3 w-3" /> List
+                  </button>
+                  <button
+                    onClick={() => setSessionView('calendar')}
+                    className={`flex items-center gap-1 rounded px-2.5 py-1 text-[10px] font-semibold transition-colors cursor-pointer ${
+                      sessionView === 'calendar' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    <Calendar className="h-3 w-3" /> Calendar
+                  </button>
+                </div>
+                {(isAdmin || isFaculty) && (
+                  <button 
+                    onClick={() => {
+                      const now = new Date();
+                      setSessionStart(now.toISOString().slice(0, 16));
+                      setSessionEnd(new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16));
+                      setShowAddSessionModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" /> Schedule Session
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Sessions list */}
-            {sessions.length === 0 ? (
+            {/* Sessions view */}
+            {sessionView === 'calendar' ? (
+              <SessionCalendar sessions={sessions} showJoinButton={true} />
+            ) : sessions.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-12 text-center">
                 <Calendar className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                 <h4 className="text-xs font-semibold text-foreground mb-1">No Lectures Scheduled</h4>
@@ -734,6 +779,25 @@ export default function CourseDetailsPage() {
                         >
                           Join Zoom Lecture <ExternalLink className="h-3 w-3" />
                         </a>
+
+                        {/* Host Start URL (Faculty/Admin only) */}
+                        {(isAdmin || isFaculty) && sess.zoomStartUrl && (
+                          <a
+                            href={sess.zoomStartUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded-md border border-blue-500/20 bg-blue-500/10 px-3.5 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors w-full md:w-auto text-center justify-center"
+                          >
+                            Start as Host <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+
+                        {/* Zoom Meeting Password */}
+                        {sess.zoomPassword && (
+                          <div className="text-[10px] text-muted-foreground font-mono">
+                            Passcode: <span className="text-foreground font-semibold">{sess.zoomPassword}</span>
+                          </div>
+                        )}
                         
                         {sess.recordedVideo && (
                           <a
@@ -1123,15 +1187,62 @@ export default function CourseDetailsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Zoom Link / Live URL *</label>
-                <input 
-                  type="url" 
-                  value={sessionLiveLink}
-                  onChange={(e) => setSessionLiveLink(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none font-mono"
-                  placeholder="https://zoom.us/j/..."
-                  required
-                />
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Zoom Meeting Link</label>
+                
+                {isZoomActive ? (
+                  <>
+                    {/* Toggle between auto-generate and manual */}
+                    <div className="flex items-center bg-secondary/30 border border-border rounded-md p-0.5 w-fit">
+                      <button
+                        type="button"
+                        onClick={() => setAutoGenerateZoom(true)}
+                        className={`rounded px-3 py-1.5 text-[10px] font-semibold transition-colors cursor-pointer ${
+                          autoGenerateZoom ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        ⚡ Auto-generate Zoom
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAutoGenerateZoom(false)}
+                        className={`rounded px-3 py-1.5 text-[10px] font-semibold transition-colors cursor-pointer ${
+                          !autoGenerateZoom ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        🔗 Manual Link
+                      </button>
+                    </div>
+
+                    {autoGenerateZoom ? (
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-500/10 border border-emerald-500/20 rounded-md px-3 py-2">
+                        A Zoom meeting will be automatically created when you schedule this session. The join link, host URL, and passcode will be generated.
+                      </p>
+                    ) : (
+                      <input 
+                        type="url" 
+                        value={sessionLiveLink}
+                        onChange={(e) => setSessionLiveLink(e.target.value)}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none font-mono"
+                        placeholder="https://zoom.us/j/..."
+                        required={!autoGenerateZoom}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="rounded-md bg-amber-500/10 border border-amber-500/20 p-3 text-[10px] text-amber-700 dark:text-amber-300">
+                      ⚡ <strong>Zoom auto-generation is not configured.</strong> Ask your Institute Administrator to enter Zoom Server-to-Server OAuth credentials in their settings to enable this feature.
+                    </div>
+                    <input 
+                      type="url" 
+                      value={sessionLiveLink}
+                      onChange={(e) => setSessionLiveLink(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none font-mono"
+                      placeholder="https://zoom.us/j/... (Paste manual class link here)"
+                      required
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">

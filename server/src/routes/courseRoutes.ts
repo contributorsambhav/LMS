@@ -23,13 +23,17 @@ import {
   assignFacultyToCourse,
   unassignFacultyFromCourse,
   removeStudentFromCourse,
-  getUpcomingSessions
+  getUpcomingSessions,
+  getAllMySessions
 } from "../controllers/courseController";
 
 const router = Router();
 
 // Upcoming Sessions across all courses (Must be placed before parametric routes like /:courseId)
 router.get("/upcoming-sessions", authenticate, checkApproved, getUpcomingSessions);
+
+// All Sessions (past + future) for calendar navigation
+router.get("/all-sessions", authenticate, checkApproved, getAllMySessions);
 
 // Get list of all Faculty members affiliated to user's institute
 router.get("/institute-faculty", authenticate, checkApproved, checkRole(["InstituteAdmin"]), getInstituteFaculty);
@@ -44,6 +48,10 @@ router.get("/my-enrollments", authenticate, checkApproved, checkRole(["Student"]
 
 // Get list of all students in user's institute
 router.get("/students", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), getInstituteStudents);
+
+// Faculty Enrollment Approval / Requests (Must be placed before parametric routes like /:courseId)
+router.get("/pending-enrollments", authenticate, checkApproved, checkRole(["Faculty"]), getPendingEnrollments);
+router.patch("/enrollments/:id/status", authenticate, checkApproved, checkRole(["Faculty"]), updateEnrollmentStatus);
 
 // Fetch a single course by ID
 router.get("/:courseId", authenticate, checkApproved, getCourseById);
@@ -71,9 +79,5 @@ router.delete("/:courseId/students/:studentId", authenticate, checkApproved, che
 // Independent Course Materials
 router.post("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), upload.single("pdf"), addCourseMaterial);
 router.get("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty", "Student"]), getCourseMaterials);
-
-// Faculty Enrollment Approval / Requests
-router.get("/pending-enrollments", authenticate, checkApproved, checkRole(["Faculty"]), getPendingEnrollments);
-router.patch("/enrollments/:id/status", authenticate, checkApproved, checkRole(["Faculty"]), updateEnrollmentStatus);
 
 export default router;

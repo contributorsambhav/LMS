@@ -390,7 +390,7 @@ export const updateInstituteProfile = async (req: AuthenticatedRequest, res: Res
       return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
     }
 
-    const { legalName, brandName, phoneNumber, address, email, billingPlan } = req.body;
+    const { legalName, brandName, phoneNumber, address, email, billingPlan, zoomAccountId, zoomClientId, zoomClientSecret } = req.body;
 
     const institute = await Institute.findById(instituteId);
     if (!institute) {
@@ -407,6 +407,11 @@ export const updateInstituteProfile = async (req: AuthenticatedRequest, res: Res
     if (address) institute.address = address;
     if (email) institute.email = email;
     if (billingPlan) institute.billingPlan = billingPlan;
+
+    // Zoom Server-to-Server OAuth credentials
+    if (zoomAccountId !== undefined) institute.zoomAccountId = zoomAccountId;
+    if (zoomClientId !== undefined) institute.zoomClientId = zoomClientId;
+    if (zoomClientSecret !== undefined) institute.zoomClientSecret = zoomClientSecret;
 
     await institute.save();
 

@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '../../../lib/session';
+import SessionCalendar from '../../../components/SessionCalendar';
 
 export default function StudentDashboard() {
   const session = useUser();
@@ -31,6 +32,8 @@ export default function StudentDashboard() {
   const [loadingMaterials, setLoadingMaterials] = useState(false);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(false);
+  const [allSessions, setAllSessions] = useState<any[]>([]);
+  const [loadingAllSessions, setLoadingAllSessions] = useState(false);
 
   // Profile Edit State
   const [editName, setEditName] = useState('');
@@ -87,6 +90,23 @@ export default function StudentDashboard() {
     }
   };
 
+  const fetchAllSessions = async () => {
+    if (!session?.token) return;
+    setLoadingAllSessions(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/courses/all-sessions', {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        setAllSessions(await res.json());
+      }
+    } catch (e) {
+      console.error("Failed to fetch all sessions:", e);
+    } finally {
+      setLoadingAllSessions(false);
+    }
+  };
+
   useEffect(() => {
     const token = session?.token;
     if (token) {
@@ -104,6 +124,14 @@ export default function StudentDashboard() {
     const tabParam = searchParams?.get('tab') || 'overview';
     setActiveTab(tabParam);
   }, [searchParams?.toString()]);
+
+  // Fetch all sessions when calendar tab opens (lazy)
+  useEffect(() => {
+    if (activeTab === 'calendar' && session?.token && allSessions.length === 0) {
+      fetchAllSessions();
+    }
+  }, [activeTab, session?.token]);
+
 
   const handleJoinCourse = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -287,10 +315,10 @@ export default function StudentDashboard() {
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-border gap-6 text-sm">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto">
         <button 
           onClick={() => setActiveTab('overview')} 
-          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer ${
+          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
             activeTab === 'overview' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -298,15 +326,24 @@ export default function StudentDashboard() {
         </button>
         <button 
           onClick={() => setActiveTab('courses')} 
-          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer ${
+          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
             activeTab === 'courses' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           My Courses ({approvedEnrollments.length})
         </button>
         <button 
+          onClick={() => setActiveTab('calendar')} 
+          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 flex items-center gap-1.5 ${
+            activeTab === 'calendar' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Calendar className="h-3.5 w-3.5" />
+          Schedule
+        </button>
+        <button 
           onClick={() => setActiveTab('profile')} 
-          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer ${
+          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
             activeTab === 'profile' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -407,9 +444,17 @@ export default function StudentDashboard() {
 
               {/* Upcoming Sessions Widget */}
               <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Video className="h-4.5 w-4.5 text-muted-foreground" />
-                  <h3 className="font-semibold text-foreground text-sm">Upcoming Live Classes</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4.5 w-4.5 text-muted-foreground" />
+                    <h3 className="font-semibold text-foreground text-sm">Upcoming Live Classes</h3>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('calendar')}
+                    className="text-[10px] font-medium text-primary hover:underline cursor-pointer"
+                  >
+                    Full Calendar →
+                  </button>
                 </div>
                 
                 {loadingUpcoming ? (
@@ -420,7 +465,7 @@ export default function StudentDashboard() {
                   <p className="text-xs text-muted-foreground leading-relaxed text-left">No upcoming sessions scheduled.</p>
                 ) : (
                   <div className="space-y-3">
-                    {upcomingSessions.map((sess: any) => {
+                    {upcomingSessions.slice(0, 3).map((sess: any) => {
                       const start = new Date(sess.startTime);
                       return (
                         <div key={sess._id} className="border border-border rounded-md p-3 space-y-2 bg-secondary/5 text-left">
@@ -437,9 +482,75 @@ export default function StudentDashboard() {
                         </div>
                       );
                     })}
+                    {upcomingSessions.length > 3 && (
+                      <button
+                        onClick={() => setActiveTab('calendar')}
+                        className="w-full text-[10px] font-medium text-primary hover:underline text-center cursor-pointer py-1"
+                      >
+                        +{upcomingSessions.length - 3} more — view full calendar
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Mini Calendar Preview */}
+              {upcomingSessions.length > 0 && (
+                <div className="bg-card border border-border rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-3.5 w-3.5 text-primary" />
+                      <h3 className="text-xs font-semibold text-foreground">This Month</h3>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('calendar')}
+                      className="text-[10px] font-medium text-primary hover:underline cursor-pointer"
+                    >
+                      Expand →
+                    </button>
+                  </div>
+                  <div className="p-3">
+                    <div className="grid grid-cols-7 gap-0.5 text-center">
+                      {['S','M','T','W','T','F','S'].map((d, i) => (
+                        <div key={i} className="text-[9px] font-bold text-muted-foreground py-1">{d}</div>
+                      ))}
+                      {(() => {
+                        const now = new Date();
+                        const y = now.getFullYear(), m = now.getMonth();
+                        const firstDay = new Date(y, m, 1).getDay();
+                        const daysInMonth = new Date(y, m + 1, 0).getDate();
+                        const sessionDays = new Set(
+                          upcomingSessions
+                            .filter(s => {
+                              const d = new Date(s.startTime);
+                              return d.getMonth() === m && d.getFullYear() === y;
+                            })
+                            .map(s => new Date(s.startTime).getDate())
+                        );
+                        const cells = [];
+                        for (let i = 0; i < firstDay; i++) cells.push(<div key={`e${i}`} />);
+                        for (let d = 1; d <= daysInMonth; d++) {
+                          const isToday = d === now.getDate();
+                          const hasSession = sessionDays.has(d);
+                          cells.push(
+                            <div
+                              key={d}
+                              className={`relative flex items-center justify-center rounded text-[10px] py-1 font-medium
+                                ${isToday ? 'bg-primary text-primary-foreground' : hasSession ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'text-foreground'}`}
+                            >
+                              {d}
+                              {hasSession && !isToday && (
+                                <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 w-0.5 rounded-full bg-emerald-500" />
+                              )}
+                            </div>
+                          );
+                        }
+                        return cells;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Courses list preview */}
@@ -507,6 +618,22 @@ export default function StudentDashboard() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Calendar Tab View */}
+      {activeTab === 'calendar' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">My Session Schedule</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">All scheduled lectures across your enrolled courses — navigate months to explore.</p>
+            </div>
+            {loadingAllSessions && (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            )}
+          </div>
+          <SessionCalendar sessions={allSessions} showJoinButton={true} />
         </div>
       )}
 

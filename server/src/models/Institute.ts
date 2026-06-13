@@ -10,6 +10,9 @@ export interface IInstitute extends Document {
   adminId: Schema.Types.ObjectId;
   status: "Pending" | "Active" | "Suspended";
   billingPlan: "Basic" | "Premium" | "Enterprise" | "Custom";
+  zoomAccountId?: string;
+  zoomClientId?: string;
+  zoomClientSecret?: string;
   createdAt: Date;
 }
 
@@ -31,7 +34,10 @@ const InstituteSchema = new Schema<IInstitute>(
       type: String,
       enum: ["Basic", "Premium", "Enterprise", "Custom"],
       default: "Basic"
-    }
+    },
+    zoomAccountId: { type: String, trim: true },
+    zoomClientId: { type: String, trim: true },
+    zoomClientSecret: { type: String, trim: true }
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

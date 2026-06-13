@@ -7,7 +7,10 @@ export interface ISession extends Document {
   description?: string;
   startTime: Date;
   endTime: Date;
-  liveLink: string; // Zoom link (mandatory)
+  liveLink?: string; // Zoom join URL (auto-generated or manual)
+  zoomMeetingId?: number; // Zoom meeting ID for API management
+  zoomStartUrl?: string; // Host-only start URL (contains embedded credentials)
+  zoomPassword?: string; // Meeting passcode
   recordedVideo?: string; // Recorded Video link (optional)
   attachments: string[]; // Uploaded pdf file paths
   createdAt: Date;
@@ -21,7 +24,10 @@ const SessionSchema = new Schema<ISession>(
     description: { type: String },
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },
-    liveLink: { type: String, required: true, trim: true },
+    liveLink: { type: String, trim: true },
+    zoomMeetingId: { type: Number },
+    zoomStartUrl: { type: String },
+    zoomPassword: { type: String },
     recordedVideo: { type: String, trim: true },
     attachments: { type: [String], default: [] }
   },

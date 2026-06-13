@@ -1,4 +1,6 @@
 import express, { Request, Response } from "express";
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
 import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db";
@@ -28,6 +30,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/super", superRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", courseRoutes);
+
+// Zoom integration status check
+import { isZoomConfigured } from "./services/zoomService";
+app.get("/api/zoom/status", (req: Request, res: Response) => {
+  res.status(200).json({
+    configured: isZoomConfigured(),
+    message: isZoomConfigured()
+      ? "Zoom Server-to-Server OAuth credentials are configured."
+      : "Zoom credentials are not set. Add ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, and ZOOM_CLIENT_SECRET to your .env file."
+  });
+});
 
 // Health check endpoint
 app.get("/api/health", (req: Request, res: Response) => {
