@@ -6,6 +6,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { API_BASE_URL } from '../../lib/api';
 
 // Wrap search params reading in a Suspense boundary to comply with Next.js Client Component requirements
 function LoginFormContent() {
@@ -70,7 +71,7 @@ function LoginFormContent() {
     setSuperCodeError('');
 
     try {
-      const backendRes = await fetch('http://localhost:5000/api/auth/super-login', {
+      const backendRes = await fetch(`${API_BASE_URL}/api/auth/super-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: superCode })

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "../../../lib/session";
+import { API_BASE_URL } from "../../../lib/api";
 
 export default function AdminDashboard() {
   const session = useUser();
@@ -84,7 +85,7 @@ export default function AdminDashboard() {
   const fetchCourses = async (token: string) => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/courses", {
+      const res = await fetch(`${API_BASE_URL}/api/admin/courses`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -93,7 +94,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         setCourses(data);
       }
-      const instRes = await fetch("http://localhost:5000/api/admin/institute", {
+      const instRes = await fetch(`${API_BASE_URL}/api/admin/institute`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -103,21 +104,21 @@ export default function AdminDashboard() {
         setInstitute(instData);
       }
       
-      const plansRes = await fetch("http://localhost:5000/api/admin/plans", {
+      const plansRes = await fetch(`${API_BASE_URL}/api/admin/plans`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (plansRes.ok) {
         setPlans(await plansRes.json());
       }
       
-      const pendingRes = await fetch("http://localhost:5000/api/admin/pending-users", {
+      const pendingRes = await fetch(`${API_BASE_URL}/api/admin/pending-users`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (pendingRes.ok) {
         setPendingUsers(await pendingRes.json());
       }
 
-      const rosterRes = await fetch("http://localhost:5000/api/admin/roster", {
+      const rosterRes = await fetch(`${API_BASE_URL}/api/admin/roster`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (rosterRes.ok) {
@@ -150,7 +151,7 @@ export default function AdminDashboard() {
     if (!createName || !createDesc || !createCourseCode || !session?.token) return;
     setCreating(true);
     try {
-      const res = await fetch("http://localhost:5000/api/courses", {
+      const res = await fetch(`${API_BASE_URL}/api/courses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -183,7 +184,7 @@ export default function AdminDashboard() {
     if (!session?.token) return;
     setLoadingSessions(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/sessions`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/sessions`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -200,7 +201,7 @@ export default function AdminDashboard() {
     if (!session?.token) return;
     setLoadingMaterials(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/materials`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/materials`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -217,7 +218,7 @@ export default function AdminDashboard() {
     if (!session?.token) return;
     setLoadingStudents(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/students`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/students`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -266,7 +267,7 @@ export default function AdminDashboard() {
         }
       }
 
-      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/sessions`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/sessions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.token}`
@@ -314,7 +315,7 @@ export default function AdminDashboard() {
       formData.append('title', newMaterialTitle || newMaterialFile.name);
       formData.append('pdf', newMaterialFile);
 
-      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/materials`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/materials`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.token}`
@@ -355,7 +356,7 @@ export default function AdminDashboard() {
     setEnrollSuccess('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/students`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/students`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -610,7 +611,7 @@ export default function AdminDashboard() {
                           if (!session?.token) return;
                           setUpdatingUserId(user._id);
                           try {
-                            const res = await fetch(`http://localhost:5000/api/admin/users/${user._id}/status`, {
+                            const res = await fetch(`${API_BASE_URL}/api/admin/users/${user._id}/status`, {
                               method: 'PATCH',
                               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` },
                               body: JSON.stringify({ status: 'Approved' })
@@ -632,7 +633,7 @@ export default function AdminDashboard() {
                           setUpdatingUserId(user._id);
                           try {
                             const endpoint = user.role === 'Faculty' ? `/api/admin/faculties/${user._id}` : `/api/admin/students/${user._id}`;
-                            const res = await fetch(`http://localhost:5000${endpoint}`, {
+                            const res = await fetch(`${API_BASE_URL}${endpoint}`, {
                               method: 'DELETE',
                               headers: { Authorization: `Bearer ${session.token}` }
                             });
@@ -678,7 +679,7 @@ export default function AdminDashboard() {
                   onClick={async () => {
                     setSavingSettings(true);
                     try {
-                      const res = await fetch("http://localhost:5000/api/admin/institute", {
+                      const res = await fetch(`${API_BASE_URL}/api/admin/institute`, {
                         method: "PATCH",
                         headers: {
                           "Content-Type": "application/json",

@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser } from '../../../lib/session';
 import SessionCalendar from '../../../components/SessionCalendar';
+import { API_BASE_URL } from '../../../lib/api';
 
 export default function FacultyDashboard() {
   const session = useUser();
@@ -59,7 +60,7 @@ export default function FacultyDashboard() {
     if (!session?.token) return;
     setLoadingUpcoming(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses/upcoming-sessions', {
+      const res = await fetch(`${API_BASE_URL}/api/courses/upcoming-sessions`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -76,7 +77,7 @@ export default function FacultyDashboard() {
     if (!session?.token) return;
     setLoadingAllSessions(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses/all-sessions', {
+      const res = await fetch(`${API_BASE_URL}/api/courses/all-sessions`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -92,7 +93,7 @@ export default function FacultyDashboard() {
   const fetchActiveInstitutes = async () => {
     setLoadingInstitutes(true);
     try {
-      const res = await fetch('http://localhost:5000/api/auth/active-institutes');
+      const res = await fetch(`${API_BASE_URL}/api/auth/active-institutes`);
       if (res.ok) {
         const data = await res.json();
         setActiveInstitutes(data);
@@ -117,7 +118,7 @@ export default function FacultyDashboard() {
     setAffiliationError('');
     setAffiliationSuccess('');
     try {
-      const res = await fetch('http://localhost:5000/api/auth/update-institute', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/update-institute`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +194,7 @@ export default function FacultyDashboard() {
   const fetchCourses = async (token: string) => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:5000/api/courses/my-courses', {
+      const res = await fetch(`${API_BASE_URL}/api/courses/my-courses`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -212,7 +213,7 @@ export default function FacultyDashboard() {
   const fetchPendingApprovals = async (token: string) => {
     setLoadingApprovals(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses/pending-enrollments', {
+      const res = await fetch(`${API_BASE_URL}/api/courses/pending-enrollments`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -229,7 +230,7 @@ export default function FacultyDashboard() {
 
   const fetchInstituteStudents = async (token: string) => {
     try {
-      const res = await fetch('http://localhost:5000/api/courses/students', {
+      const res = await fetch(`${API_BASE_URL}/api/courses/students`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -244,7 +245,7 @@ export default function FacultyDashboard() {
 
   const fetchFacultyProfile = async (token: string) => {
     try {
-      const res = await fetch('http://localhost:5000/api/auth/me', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -330,7 +331,7 @@ export default function FacultyDashboard() {
         return;
       }
 
-      const res = await fetch('http://localhost:5000/api/courses/join', {
+      const res = await fetch(`${API_BASE_URL}/api/courses/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -360,7 +361,7 @@ export default function FacultyDashboard() {
     if (!createName || !createDesc || !createCourseCode || !session?.token) return;
     setCreating(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses', {
+      const res = await fetch(`${API_BASE_URL}/api/courses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -393,7 +394,7 @@ export default function FacultyDashboard() {
     if (!session?.token) return;
     setProcessingId(enrollmentId);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/enrollments/${enrollmentId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/enrollments/${enrollmentId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -419,7 +420,7 @@ export default function FacultyDashboard() {
     if (!session?.token) return;
     setLoadingSessions(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/sessions`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/sessions`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -436,7 +437,7 @@ export default function FacultyDashboard() {
     if (!session?.token) return;
     setLoadingMaterials(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/materials`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/materials`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -453,7 +454,7 @@ export default function FacultyDashboard() {
     if (!session?.token) return;
     setLoadingStudents(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}/students`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/students`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -502,7 +503,7 @@ export default function FacultyDashboard() {
         }
       }
 
-      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/sessions`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/sessions`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.token}`
@@ -552,7 +553,7 @@ export default function FacultyDashboard() {
       formData.append('title', newMaterialTitle || newMaterialFile.name);
       formData.append('pdf', newMaterialFile);
 
-      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/materials`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/materials`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.token}`
@@ -593,7 +594,7 @@ export default function FacultyDashboard() {
     setEnrollSuccess('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${selectedCourse._id}/students`, {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/students`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

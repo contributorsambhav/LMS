@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { API_BASE_URL } from "@/lib/api";
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
     const backendRole = roleMap[role] || "Student";
 
     // 3. Authenticate / Register with Express backend
-    const backendResponse = await fetch("http://localhost:5000/api/auth/oauth-login", {
+    const backendResponse = await fetch(`${API_BASE_URL}/api/auth/oauth-login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

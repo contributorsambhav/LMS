@@ -9,6 +9,9 @@ import authRoutes from "./routes/authRoutes";
 import superRoutes from "./routes/superRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import courseRoutes from "./routes/courseRoutes";
+import quizRoutes from "./routes/quizRoutes";
+import assignmentRoutes from "./routes/assignmentRoutes";
+import lessonRoutes from "./routes/lessonRoutes";
 
 // Load environment variables from .env
 dotenv.config();
@@ -30,6 +33,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/super", superRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/courses", courseRoutes);
+app.use("/api/quizzes", quizRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/lessons", lessonRoutes);
 
 // Zoom integration status check
 import { isZoomConfigured } from "./services/zoomService";

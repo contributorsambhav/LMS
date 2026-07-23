@@ -4,6 +4,7 @@ import { AlertTriangle, BookOpen, ChevronLeft, Sparkles, User, Users } from 'luc
 import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { API_BASE_URL } from '../../lib/api';
 
 function SignupFormContent() {
   const router = useRouter();
@@ -32,7 +33,7 @@ function SignupFormContent() {
   // Fetch approved active institutes for Students and Faculty
   useEffect(() => {
     if (selectedRole === 'student' || selectedRole === 'faculty') {
-      fetch('http://localhost:5000/api/auth/active-institutes')
+      fetch(`${API_BASE_URL}/api/auth/active-institutes`)
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) {

@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 
 import { useSearchParams } from 'next/navigation';
 import { useUser } from '../../../lib/session';
+import { API_BASE_URL } from '../../../lib/api';
 
 export default function SuperAdminDashboard() {
   const session = useUser();
@@ -32,7 +33,7 @@ export default function SuperAdminDashboard() {
   const fetchInstitutes = async (token: string) => {
     try {
       setLoading(true);
-      const res = await fetch('http://localhost:5000/api/super/institutes', {
+      const res = await fetch(`${API_BASE_URL}/api/super/institutes`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -50,7 +51,7 @@ export default function SuperAdminDashboard() {
 
   const fetchVerifications = async (token: string) => {
     try {
-      const res = await fetch('http://localhost:5000/api/super/verifications', {
+      const res = await fetch(`${API_BASE_URL}/api/super/verifications`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -59,7 +60,7 @@ export default function SuperAdminDashboard() {
       }
 
       // Fetch dynamic pricing plans
-      const plansRes = await fetch('http://localhost:5000/api/super/plans', {
+      const plansRes = await fetch(`${API_BASE_URL}/api/super/plans`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -69,7 +70,7 @@ export default function SuperAdminDashboard() {
       }
 
       // Fetch all students
-      const studentsRes = await fetch('http://localhost:5000/api/super/students', {
+      const studentsRes = await fetch(`${API_BASE_URL}/api/super/students`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (studentsRes.ok) {
@@ -95,7 +96,7 @@ export default function SuperAdminDashboard() {
     if (!token) return;
     setUpdatingId(id);
     try {
-      const res = await fetch(`http://localhost:5000/api/super/verifications/${id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/verifications/${id}/approve`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -122,7 +123,7 @@ export default function SuperAdminDashboard() {
     if (!token) return;
     setUpdatingId(id);
     try {
-      const res = await fetch(`http://localhost:5000/api/super/verifications/${id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/verifications/${id}/reject`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -161,7 +162,7 @@ export default function SuperAdminDashboard() {
     setFeedbackType('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/super/institutes/${instId}/status`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/institutes/${instId}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -197,7 +198,7 @@ export default function SuperAdminDashboard() {
     setFeedbackType('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/super/institutes/${instId}/billing`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/institutes/${instId}/billing`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +236,7 @@ export default function SuperAdminDashboard() {
     setFeedbackType('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/super/institutes/${instId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/institutes/${instId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -263,7 +264,7 @@ export default function SuperAdminDashboard() {
     if (!token || !editingPlanId) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/super/plans/${editingPlanId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/plans/${editingPlanId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -273,7 +274,7 @@ export default function SuperAdminDashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        const plansRes = await fetch('http://localhost:5000/api/super/plans', { headers: { Authorization: `Bearer ${token}` } });
+        const plansRes = await fetch(`${API_BASE_URL}/api/super/plans`, { headers: { Authorization: `Bearer ${token}` } });
         if (plansRes.ok) setPlans(await plansRes.json());
         setEditingPlanId(null);
         setFeedbackType('success');
@@ -298,7 +299,7 @@ export default function SuperAdminDashboard() {
     setFeedbackType('');
 
     try {
-      const res = await fetch(`http://localhost:5000/api/super/users/${studentId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/users/${studentId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -327,7 +328,7 @@ export default function SuperAdminDashboard() {
     setLoadingStudentDetails(true);
     setSelectedStudent(null);
     try {
-      const res = await fetch(`http://localhost:5000/api/super/students/${studentId}/details`, {
+      const res = await fetch(`${API_BASE_URL}/api/super/students/${studentId}/details`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

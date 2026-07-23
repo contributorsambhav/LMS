@@ -32,3 +32,20 @@ export const upload = multer({
   fileFilter,
   limits: { fileSize: 15 * 1024 * 1024 } // 15MB limit
 });
+
+const videoFileFilter = (req: any, file: any, cb: any) => {
+  const allowedExts = [".mp4", ".webm", ".mov", ".avi", ".mkv"];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (file.mimetype.startsWith("video/") || allowedExts.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only video files (.mp4, .webm, .mov, etc.) are allowed!"), false);
+  }
+};
+
+export const videoUpload = multer({
+  storage,
+  fileFilter: videoFileFilter,
+  limits: { fileSize: 200 * 1024 * 1024 } // 200MB limit for video lectures
+});
+

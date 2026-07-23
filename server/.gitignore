@@ -121,3 +121,6 @@ dist
 # Server build output
 dist/
 build/
+
+# Uploads
+uploads/
