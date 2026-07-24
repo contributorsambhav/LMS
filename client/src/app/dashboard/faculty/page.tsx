@@ -46,6 +46,10 @@ export default function FacultyDashboard() {
   const [allSessions, setAllSessions] = useState<any[]>([]);
   const [loadingAllSessions, setLoadingAllSessions] = useState(false);
 
+  // Pending Grading State
+  const [pendingGrading, setPendingGrading] = useState<{ submissions: any[], attempts: any[] }>({ submissions: [], attempts: [] });
+  const [loadingGrading, setLoadingGrading] = useState(false);
+
   // Institute Affiliation State
   const [activeInstitutes, setActiveInstitutes] = useState<any[]>([]);
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
@@ -243,6 +247,25 @@ export default function FacultyDashboard() {
     }
   };
 
+  const fetchPendingGrading = async (token: string) => {
+    setLoadingGrading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/courses/pending/grading`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingGrading({ submissions: data.pendingSubmissions || [], attempts: data.pendingQuizAttempts || [] });
+      }
+    } catch (error) {
+      console.error('Failed to fetch pending grading tasks:', error);
+    } finally {
+      setLoadingGrading(false);
+    }
+  };
+
   const fetchFacultyProfile = async (token: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
@@ -283,6 +306,7 @@ export default function FacultyDashboard() {
       fetchInstituteStudents(token);
       fetchUpcomingSessions();
       fetchFacultyProfile(token);
+      fetchPendingGrading(token);
     } else {
       setLoading(false);
     }
@@ -309,6 +333,13 @@ export default function FacultyDashboard() {
   useEffect(() => {
     if (activeTab === 'calendar' && session?.token && allSessions.length === 0) {
       fetchAllSessions();
+    }
+  }, [activeTab, session?.token]);
+
+  // Fetch pending grading when grading tab opens (fallback if not loaded)
+  useEffect(() => {
+    if (activeTab === 'grading' && session?.token && pendingGrading.submissions.length === 0 && pendingGrading.attempts.length === 0 && !loadingGrading) {
+      fetchPendingGrading(session.token);
     }
   }, [activeTab, session?.token]);
 
@@ -678,6 +709,14 @@ export default function FacultyDashboard() {
           Approvals ({pendingApprovals.length})
         </button>
         <button 
+          onClick={() => setActiveTab('grading')} 
+          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
+            activeTab === 'grading' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Pending Grading ({pendingGrading.submissions.length + pendingGrading.attempts.length})
+        </button>
+        <button 
           onClick={() => setActiveTab('affiliation')} 
           className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
             activeTab === 'affiliation' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -708,6 +747,15 @@ export default function FacultyDashboard() {
               </div>
               <p className="text-2xl font-semibold text-foreground mt-2 leading-none truncate">{session.instituteId ? 'Linked Tenant' : 'No Institution Linked'}</p>
               <p className="text-[10px] text-muted-foreground mt-2">Determined by course codes</p>
+            </div>
+
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Pending Grading</span>
+                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-2xl font-semibold text-foreground mt-2 leading-none">{pendingGrading.submissions.length + pendingGrading.attempts.length}</p>
+              <p className="text-[10px] text-muted-foreground mt-2">Assignments and quizzes awaiting review</p>
             </div>
           </div>
 
@@ -1186,6 +1234,80 @@ export default function FacultyDashboard() {
               </form>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Pending Grading Tab */}
+      {activeTab === 'grading' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Pending Grading</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Submissions and Quiz attempts that require your evaluation.</p>
+          </div>
+          
+          {loadingGrading ? (
+            <div className="flex h-32 items-center justify-center">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ungraded Assignments ({pendingGrading.submissions.length})</h4>
+                {pendingGrading.submissions.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending assignments to grade.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingGrading.submissions.map(sub => (
+                      <div key={sub._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">Assignment Submission</span>
+                            <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-mono">{sub.assignmentId?.courseId?.studentCode}</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{sub.assignmentId?.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1">Submitted by: {sub.studentId?.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Date: {new Date(sub.submittedAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-end items-center">
+                          <button onClick={() => router.push(`/dashboard/courses/${sub.assignmentId?.courseId?._id}?tab=assignments`)} className="text-[10px] bg-primary text-primary-foreground px-3 py-1.5 rounded font-semibold cursor-pointer">Grade Assignment</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ungraded Quizzes ({pendingGrading.attempts.length})</h4>
+                {pendingGrading.attempts.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending quizzes to grade.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingGrading.attempts.map(att => (
+                      <div key={att._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">Quiz Attempt</span>
+                            <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-mono">{att.quizId?.courseId?.studentCode}</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{att.quizId?.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1">Submitted by: {att.userId?.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Date: {att.completedAt ? new Date(att.completedAt).toLocaleDateString() : 'N/A'}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-end items-center">
+                          <button onClick={() => router.push(`/dashboard/courses/${att.quizId?.courseId?._id}?tab=quizzes`)} className="text-[10px] bg-primary text-primary-foreground px-3 py-1.5 rounded font-semibold cursor-pointer">Grade Quiz</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

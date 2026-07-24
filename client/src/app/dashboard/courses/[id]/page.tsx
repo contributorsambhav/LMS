@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import SessionCalendar from '../../../../components/SessionCalendar';
 import VideoPlayer from '../../../../components/VideoPlayer';
+import StudentProgress from '../../../../components/StudentProgress';
+import FacultyProgress from '../../../../components/FacultyProgress';
 
 export default function CourseDetailsPage() {
   const params = useParams();
@@ -34,8 +36,11 @@ export default function CourseDetailsPage() {
   const [instituteStudents, setInstituteStudents] = useState<any[]>([]);
   const [instituteFaculty, setInstituteFaculty] = useState<any[]>([]);
 
+  // Student specific global state
+  const [studentCourseProgress, setStudentCourseProgress] = useState<any>(null);
+
   // UI state
-  const [activeTab, setActiveTab] = useState<'lessons' | 'sessions' | 'materials' | 'quizzes' | 'assignments' | 'roster'>('lessons');
+  const [activeTab, setActiveTab] = useState<'lessons' | 'sessions' | 'materials' | 'quizzes' | 'assignments' | 'roster' | 'progress' | 'tasks' | 'grading'>('lessons');
   const [sessionView, setSessionView] = useState<'list' | 'calendar'>('list');
   const [isCopied, setIsCopied] = useState<Record<string, boolean>>({});
   
@@ -121,6 +126,10 @@ export default function CourseDetailsPage() {
   const [assignmentSubmittingFile, setAssignmentSubmittingFile] = useState(false);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [gradeSubmissionSubmitting, setGradeSubmissionSubmitting] = useState(false);
+
+  // Pending Grading state for Faculty
+  const [pendingGrading, setPendingGrading] = useState<{ submissions: any[], attempts: any[] }>({ submissions: [], attempts: [] });
+  const [loadingGrading, setLoadingGrading] = useState(false);
 
   // Form states - Edit Course
   const [editName, setEditName] = useState('');
@@ -266,11 +275,30 @@ export default function CourseDetailsPage() {
       });
       if (assignmentsRes.ok) setAssignments(await assignmentsRes.json());
 
-      // 11. Fetch Lessons
+      // 11. Fetch Student Progress
+      if (isStudent) {
+        const progressRes = await fetch(`${API_BASE_URL}/api/courses/${courseId}/progress`, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
+        if (progressRes.ok) setStudentCourseProgress(await progressRes.json());
+      }
+
+      // 12. Fetch Lessons
       const lessonsRes = await fetch(`${API_BASE_URL}/api/lessons/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (lessonsRes.ok) setLessons(await lessonsRes.json());
+
+      // 13. Fetch Pending Grading for Faculty
+      if (!isStudent) {
+        const gradRes = await fetch(`${API_BASE_URL}/api/courses/${courseId}/pending-grading`, {
+          headers: { Authorization: `Bearer ${session.token}` }
+        });
+        if (gradRes.ok) {
+           const gradData = await gradRes.json();
+           setPendingGrading({ submissions: gradData.pendingSubmissions || [], attempts: gradData.pendingQuizAttempts || [] });
+        }
+      }
 
     } catch (err: any) {
       console.error(err);
@@ -1059,7 +1087,7 @@ export default function CourseDetailsPage() {
     setAssignmentSubmittingFile(true);
     try {
       const formData = new FormData();
-      formData.append('pdf', assignmentFile);
+      formData.append('file', assignmentFile);
 
       const res = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment._id}/submit`, {
         method: 'POST',
@@ -1266,7 +1294,7 @@ export default function CourseDetailsPage() {
 
       {/* Tabs Menu */}
       <div className="flex border-b border-border space-x-1 shrink-0 overflow-x-auto">
-        {(['lessons', 'sessions', 'materials', 'quizzes', 'assignments', 'roster'] as const).map((tab) => (
+        {(['lessons', 'sessions', 'materials', 'quizzes', 'assignments', 'roster', 'progress', ...(isStudent ? ['tasks'] : []), ...(!isStudent ? ['grading'] : [])] as any[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1276,13 +1304,154 @@ export default function CourseDetailsPage() {
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tab === 'lessons' ? 'Recorded Lessons' : tab === 'sessions' ? 'Live Sessions' : tab === 'materials' ? `Materials (${materials.length})` : tab === 'quizzes' ? `Quizzes (${quizzes.length})` : tab === 'assignments' ? `Assignments (${assignments.length})` : `Class Roster (${students.length + courseFaculty.length})`}
+            {tab === 'lessons' ? 'Recorded Lessons' : tab === 'sessions' ? 'Live Sessions' : tab === 'materials' ? `Materials (${materials.length})` : tab === 'quizzes' ? `Quizzes (${quizzes.length})` : tab === 'assignments' ? `Assignments (${assignments.length})` : tab === 'progress' ? (isStudent ? 'My Progress' : 'Course Analytics') : tab === 'tasks' ? 'Pending Tasks' : tab === 'grading' ? 'Pending Grading' : `Class Roster (${students.length + courseFaculty.length})`}
           </button>
         ))}
       </div>
 
       {/* Tab Contents */}
       <div className="space-y-6">
+
+        {/* PENDING TASKS TAB */}
+        {activeTab === 'tasks' && isStudent && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Pending Tasks</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Your pending assignments and quizzes for this course.</p>
+            </div>
+            
+            <div className="space-y-8">
+              {(() => {
+                const pendingAssignments = assignments.filter((a: any) => !studentCourseProgress?.submissions?.some((s: any) => (s.assignmentId?._id || s.assignmentId)?.toString() === a._id.toString()));
+                const pendingQuizzes = quizzes.filter((q: any) => !studentCourseProgress?.attempts?.some((attempt: any) => (attempt.quizId?._id || attempt.quizId)?.toString() === q._id.toString()));
+
+                return (
+                  <>
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending Assignments ({pendingAssignments.length})</h4>
+                      {pendingAssignments.length === 0 ? (
+                        <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                          No pending assignments.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {pendingAssignments.map((a: any) => (
+                            <div key={a._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                              <div>
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">Assignment</span>
+                                </div>
+                                <h5 className="font-semibold text-sm line-clamp-1">{a.title}</h5>
+                                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{a.description}</p>
+                              </div>
+                              <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-[10px]">
+                                <span className="text-destructive font-medium">Due: {new Date(a.deadline).toLocaleDateString()}</span>
+                                <button onClick={() => { setActiveTab('assignments'); setSelectedAssignment(a); }} className="text-primary hover:underline font-semibold cursor-pointer">Go to Assignment</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending Quizzes ({pendingQuizzes.length})</h4>
+                      {pendingQuizzes.length === 0 ? (
+                        <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                          No pending quizzes.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {pendingQuizzes.map((q: any) => (
+                            <div key={q._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                              <div>
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">Quiz</span>
+                                </div>
+                                <h5 className="font-semibold text-sm line-clamp-1">{q.title}</h5>
+                                <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{q.description}</p>
+                              </div>
+                              <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-[10px]">
+                                <span className="text-destructive font-medium">{q.deadline ? `Due: ${new Date(q.deadline).toLocaleDateString()}` : 'No Deadline'}</span>
+                                <button onClick={() => { setActiveTab('quizzes'); setSelectedQuiz(q); fetchQuizAttempts(q._id); }} className="text-primary hover:underline font-semibold cursor-pointer">Take Quiz</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* PENDING GRADING TAB (FACULTY) */}
+        {activeTab === 'grading' && !isStudent && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Pending Grading</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Submissions and Quiz attempts that require your evaluation for this course.</p>
+            </div>
+            
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ungraded Assignments ({pendingGrading.submissions.length})</h4>
+                {pendingGrading.submissions.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending assignments to grade.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingGrading.submissions.map((sub: any) => (
+                      <div key={sub._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">Assignment Submission</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{sub.assignmentId?.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1">Submitted by: {sub.studentId?.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Date: {new Date(sub.submittedAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-end items-center">
+                          <button onClick={() => { setActiveTab('assignments'); setSelectedAssignment(sub.assignmentId); fetchSubmissions(sub.assignmentId?._id); }} className="text-[10px] bg-primary text-primary-foreground px-3 py-1.5 rounded font-semibold cursor-pointer">Grade Assignment</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ungraded Quizzes ({pendingGrading.attempts.length})</h4>
+                {pendingGrading.attempts.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending quizzes to grade.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingGrading.attempts.map((att: any) => (
+                      <div key={att._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">Quiz Attempt</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{att.quizId?.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1">Submitted by: {att.userId?.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Date: {att.completedAt ? new Date(att.completedAt).toLocaleDateString() : 'N/A'}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-end items-center">
+                          <button onClick={() => { setActiveTab('quizzes'); setSelectedQuiz(att.quizId); fetchQuizAttempts(att.quizId?._id); }} className="text-[10px] bg-primary text-primary-foreground px-3 py-1.5 rounded font-semibold cursor-pointer">Grade Quiz</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 0. RECORDED LESSONS TAB */}
         {activeTab === 'lessons' && (
@@ -1757,6 +1926,45 @@ export default function CourseDetailsPage() {
                             <FileText className="h-3 w-3" /> {quiz.questions?.length || 0} questions
                           </span>
                         </div>
+                        
+                        {isStudent && (
+                          <div className="mt-2 pt-2 border-t border-border/50 flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              Policy: {quiz.scoringPolicy === 'best' ? 'Best Attempt' : quiz.scoringPolicy === 'average' ? 'Average' : 'Latest'}
+                            </span>
+                            {(() => {
+                              if (!studentCourseProgress?.attempts) return null;
+                              const quizAttemptsList = studentCourseProgress.attempts.filter((a: any) => 
+                                (a.quizId?._id || a.quizId)?.toString() === quiz._id.toString()
+                              );
+                              if (!quizAttemptsList.length) {
+                                return <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-secondary text-muted-foreground">Not Attempted</span>;
+                              }
+                              
+                              let effectiveAttempt = null;
+                              let effectiveScore = 0;
+                              if (quiz.scoringPolicy === 'best') {
+                                effectiveAttempt = quizAttemptsList.reduce((prev: any, curr: any) => (prev.score > curr.score) ? prev : curr, quizAttemptsList[0]);
+                                effectiveScore = effectiveAttempt.score;
+                              } else if (quiz.scoringPolicy === 'average') {
+                                effectiveAttempt = quizAttemptsList[quizAttemptsList.length - 1];
+                                effectiveScore = parseFloat((quizAttemptsList.reduce((acc: number, curr: any) => acc + curr.score, 0) / quizAttemptsList.length).toFixed(1));
+                              } else {
+                                effectiveAttempt = quizAttemptsList[quizAttemptsList.length - 1];
+                                effectiveScore = effectiveAttempt.score;
+                              }
+                              
+                              const quizMaxScore = quiz.questions?.reduce((acc: number, q: any) => acc + (q.points || 1), 0) || 0;
+                              return (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                  effectiveAttempt.graded ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                }`}>
+                                  {effectiveAttempt.graded ? `Score: ${effectiveScore} / ${quizMaxScore}` : 'Pending Grade'}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1827,8 +2035,13 @@ export default function CourseDetailsPage() {
                                       </span>
                                     </div>
 
+                                    {attempt.gradedBy && (
+                                      <p className="text-[10px] text-muted-foreground">
+                                        <strong className="text-foreground">Graded by:</strong> {attempt.gradedBy.name}
+                                      </p>
+                                    )}
                                     {attempt.feedback && (
-                                      <div className="text-[11px] text-muted-foreground bg-card border border-border rounded p-2.5">
+                                      <div className="text-[11px] text-muted-foreground bg-card border border-border rounded p-2.5 mt-2">
                                         <strong>Faculty Feedback:</strong> {attempt.feedback}
                                       </div>
                                     )}
@@ -1998,8 +2211,31 @@ export default function CourseDetailsPage() {
                             </div>
                           </div>
 
+                          {/* Quiz Analytics (Faculty View) */}
+                          <div className="space-y-3 mt-6">
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Quiz Analytics</h5>
+                            <div className="grid grid-cols-3 gap-4 border border-border rounded-lg bg-card p-4">
+                              <div className="text-center">
+                                <p className="text-xl font-bold text-foreground">{quizAttempts.length}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total Attempts</p>
+                              </div>
+                              <div className="text-center border-l border-border pl-4">
+                                <p className="text-xl font-bold text-foreground">
+                                  {quizAttempts.length > 0 ? (quizAttempts.reduce((acc, att) => acc + att.score, 0) / quizAttempts.length).toFixed(1) : 0}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Average Score</p>
+                              </div>
+                              <div className="text-center border-l border-border pl-4">
+                                <p className="text-xl font-bold text-foreground">
+                                  {quizAttempts.length > 0 ? Math.max(...quizAttempts.map(att => att.score)) : 0}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Highest Score</p>
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Student Attempts */}
-                          <div className="space-y-3">
+                          <div className="space-y-3 mt-6">
                             <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Student Submissions</h5>
                             {quizAttemptsLoading ? (
                               <p className="text-xs text-muted-foreground">Loading attempts...</p>
@@ -2007,20 +2243,27 @@ export default function CourseDetailsPage() {
                               <p className="text-xs text-muted-foreground italic">No student has attempted this quiz yet.</p>
                             ) : (
                               <div className="border border-border rounded-lg overflow-hidden divide-y divide-border bg-card">
-                                {quizAttempts.map((attempt) => (
-                                  <div key={attempt._id} className="p-3 flex justify-between items-center gap-4 text-xs">
-                                    <div>
-                                      <p className="font-semibold text-foreground">{attempt.userId?.name || 'Unknown student'}</p>
-                                      <p className="text-[10px] text-muted-foreground">{attempt.userId?.email}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                                        attempt.graded 
-                                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                      }`}>
-                                        {attempt.graded ? `Score: ${attempt.score}` : 'Pending Grading'}
-                                      </span>
+                                {quizAttempts.map((attempt) => {
+                                  const quizMaxScore = selectedQuiz.questions?.reduce((acc: number, q: any) => acc + (q.points || 1), 0) || 0;
+                                  return (
+                                    <div key={attempt._id} className="p-3 flex justify-between items-center gap-4 text-xs">
+                                      <div>
+                                        <p className="font-semibold text-foreground">{attempt.userId?.name || 'Unknown student'}</p>
+                                        <p className="text-[10px] text-muted-foreground">{attempt.userId?.email}</p>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                          attempt.graded 
+                                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                        }`}>
+                                          {attempt.graded ? `Score: ${attempt.score} / ${quizMaxScore}` : 'Pending Grading'}
+                                        </span>
+                                        {attempt.graded && attempt.gradedBy && (
+                                          <span className="text-[9px] text-muted-foreground text-right w-16">
+                                            by {attempt.gradedBy.name}
+                                          </span>
+                                        )}
                                       <button
                                         onClick={() => {
                                           setSelectedAttempt(attempt);
@@ -2041,7 +2284,8 @@ export default function CourseDetailsPage() {
                                       </button>
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -2102,6 +2346,35 @@ export default function CourseDetailsPage() {
                   {assignments.map((assignment) => {
                     const isSelected = selectedAssignment?._id === assignment._id;
                     const isOverdue = new Date(assignment.deadline) < new Date();
+                    
+                    let studentStatusBadge = null;
+                    if (isStudent && studentCourseProgress?.submissions) {
+                      const submission = studentCourseProgress.submissions.find((s: any) => 
+                        (s.assignmentId?._id || s.assignmentId)?.toString() === assignment._id.toString()
+                      );
+                      if (submission) {
+                        if (submission.graded) {
+                          studentStatusBadge = (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              Graded: {submission.grade}/{assignment.totalMarks}
+                            </span>
+                          );
+                        } else {
+                          studentStatusBadge = (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 whitespace-nowrap">
+                              Pending Grading
+                            </span>
+                          );
+                        }
+                      } else {
+                        studentStatusBadge = (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 whitespace-nowrap">
+                            Not Submitted
+                          </span>
+                        );
+                      }
+                    }
+
                     return (
                       <div
                         key={assignment._id}
@@ -2113,7 +2386,10 @@ export default function CourseDetailsPage() {
                           isSelected ? 'border-primary bg-primary/[0.02]' : 'border-border hover:bg-secondary/10'
                         }`}
                       >
-                        <h4 className="text-xs font-bold text-foreground line-clamp-1">{assignment.title}</h4>
+                        <div className="flex justify-between items-start gap-2 mb-1">
+                          <h4 className="text-xs font-bold text-foreground line-clamp-1">{assignment.title}</h4>
+                          {studentStatusBadge}
+                        </div>
                         <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{assignment.description}</p>
                         
                         <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50 text-[10px]">
@@ -2191,6 +2467,11 @@ export default function CourseDetailsPage() {
                                   <Eye className="h-3.5 w-3.5" /> View Upload
                                 </a>
                               </div>
+                              {submissions[0].gradedBy && (
+                                <p className="text-[10px] text-muted-foreground mt-1 mb-2">
+                                  <strong className="text-foreground">Graded by:</strong> {submissions[0].gradedBy.name}
+                                </p>
+                              )}
                               {submissions[0].feedback && (
                                 <div className="text-[11px] text-muted-foreground bg-card border border-border rounded p-2.5">
                                   <strong>Feedback:</strong> {submissions[0].feedback}
@@ -2215,7 +2496,36 @@ export default function CourseDetailsPage() {
 
                       {/* Faculty / Admin view */}
                       {(isAdmin || isFaculty) && (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
+                          {/* Assignment Analytics (Faculty View) */}
+                          <div className="space-y-3 mt-2">
+                            <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Assignment Analytics</h5>
+                            <div className="grid grid-cols-3 gap-4 border border-border rounded-lg bg-card p-4">
+                              <div className="text-center">
+                                <p className="text-xl font-bold text-foreground">{submissions.length}</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Total Submissions</p>
+                              </div>
+                              <div className="text-center border-l border-border pl-4">
+                                <p className="text-xl font-bold text-foreground">
+                                  {(() => {
+                                    const graded = submissions.filter(s => s.graded);
+                                    return graded.length > 0 ? (graded.reduce((acc, sub) => acc + (sub.grade || 0), 0) / graded.length).toFixed(1) : 0;
+                                  })()}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Average Grade</p>
+                              </div>
+                              <div className="text-center border-l border-border pl-4">
+                                <p className="text-xl font-bold text-foreground">
+                                  {(() => {
+                                    const graded = submissions.filter(s => s.graded);
+                                    return graded.length > 0 ? Math.max(...graded.map(sub => sub.grade || 0)) : 0;
+                                  })()}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-semibold">Highest Grade</p>
+                              </div>
+                            </div>
+                          </div>
+
                           <h5 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Student Submissions</h5>
                           {submissionsLoading ? (
                             <p className="text-xs text-muted-foreground font-sans">Loading submissions...</p>
@@ -2246,6 +2556,11 @@ export default function CourseDetailsPage() {
                                     }`}>
                                       {sub.graded ? `Grade: ${sub.grade} / ${selectedAssignment.totalMarks}` : 'Pending Grading'}
                                     </span>
+                                    {sub.graded && sub.gradedBy && (
+                                      <span className="text-[9px] text-muted-foreground text-right w-16">
+                                        by {sub.gradedBy.name}
+                                      </span>
+                                    )}
                                     <button
                                       onClick={() => {
                                         setSelectedSubmission(sub);
@@ -2412,10 +2727,19 @@ export default function CourseDetailsPage() {
 
           </div>
         )}
+        
+        {/* 4. PROGRESS / ANALYTICS TAB */}
+        {activeTab === 'progress' && (
+          isStudent ? (
+            <StudentProgress courseId={courseId as string} />
+          ) : (
+            <FacultyProgress courseId={courseId as string} />
+          )
+        )}
 
       </div>
 
-      {/* ======================================================== */}
+      {/* MODALS */}{/* ======================================================== */}
       {/* 4. MODALS & FORMS (PORTALS)                              */}
       {/* ======================================================== */}
 

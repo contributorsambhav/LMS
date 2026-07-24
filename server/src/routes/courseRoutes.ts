@@ -24,7 +24,12 @@ import {
   unassignFacultyFromCourse,
   removeStudentFromCourse,
   getUpcomingSessions,
-  getAllMySessions
+  getAllMySessions,
+  getStudentProgress,
+  getCourseAnalytics,
+  getStudentTasks,
+  getPendingGradingTasks,
+  getCoursePendingGrading
 } from "../controllers/courseController";
 
 const router = Router();
@@ -45,6 +50,7 @@ router.post("/", authenticate, checkApproved, checkRole(["InstituteAdmin"]), cre
 router.post("/join", authenticate, checkApproved, checkRole(["Faculty", "Student"]), joinCourse);
 router.get("/my-courses", authenticate, checkApproved, getUserCourses);
 router.get("/my-enrollments", authenticate, checkApproved, checkRole(["Student"]), getUserEnrollments);
+router.get("/my-tasks", authenticate, checkApproved, checkRole(["Student"]), getStudentTasks);
 
 // Get list of all students in user's institute
 router.get("/students", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), getInstituteStudents);
@@ -53,8 +59,14 @@ router.get("/students", authenticate, checkApproved, checkRole(["InstituteAdmin"
 router.get("/pending-enrollments", authenticate, checkApproved, checkRole(["Faculty"]), getPendingEnrollments);
 router.patch("/enrollments/:id/status", authenticate, checkApproved, checkRole(["Faculty"]), updateEnrollmentStatus);
 
+// Pending Grading tasks for Faculty/Admin (Global)
+router.get("/pending/grading", authenticate, checkApproved, checkRole(["Faculty", "InstituteAdmin", "SuperAdmin"]), getPendingGradingTasks);
+
 // Fetch a single course by ID
 router.get("/:courseId", authenticate, checkApproved, getCourseById);
+
+// Pending Grading tasks for a specific Course
+router.get("/:courseId/pending-grading", authenticate, checkApproved, checkRole(["Faculty", "InstituteAdmin", "SuperAdmin"]), getCoursePendingGrading);
 
 // Update/Delete Course
 router.put("/:courseId", authenticate, checkApproved, checkRole(["InstituteAdmin"]), updateCourse);
@@ -79,5 +91,11 @@ router.delete("/:courseId/students/:studentId", authenticate, checkApproved, che
 // Independent Course Materials
 router.post("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), upload.single("pdf"), addCourseMaterial);
 router.get("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty", "Student"]), getCourseMaterials);
+
+// Student Progress
+router.get("/:courseId/progress", authenticate, checkApproved, checkRole(["Student"]), getStudentProgress);
+
+// Course Analytics (Faculty/Admin)
+router.get("/:courseId/analytics", authenticate, checkApproved, checkRole(["Faculty", "InstituteAdmin"]), getCourseAnalytics);
 
 export default router;

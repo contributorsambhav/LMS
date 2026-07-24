@@ -6,6 +6,10 @@ import { User } from "../models/User";
 import { Session } from "../models/Session";
 import { Material } from "../models/Material";
 import { Institute } from "../models/Institute";
+import { Assignment } from "../models/Assignment";
+import { Quiz } from "../models/Quiz";
+import { Submission } from "../models/Submission";
+import { QuizAttempt } from "../models/QuizAttempt";
 import { createZoomMeeting, deleteZoomMeeting } from "../services/zoomService";
 
 // Helper to generate unique 6-character alphanumeric codes
@@ -1203,3 +1207,226 @@ export const getAllMySessions = async (req: AuthenticatedRequest, res: Response)
     return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
 };
+
+export const getStudentProgress = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId || userRole !== "Student") {
+      return res.status(401).json({ message: "Authentication failed: Only students can access progress." });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    const enrollment = await Enrollment.findOne({ userId, courseId, status: "Approved" });
+    if (!enrollment) {
+      return res.status(403).json({ message: "Access denied: You are not approved in this course." });
+    }
+
+    const assignments = await Assignment.find({ courseId });
+    const assignmentIds = assignments.map(a => a._id);
+    const submissions = await Submission.find({ studentId: userId, assignmentId: { $in: assignmentIds } })
+      .populate('assignmentId')
+      .populate('gradedBy', 'name email');
+
+    const quizzes = await Quiz.find({ courseId });
+    const quizIds = quizzes.map(q => q._id);
+    const attempts = await QuizAttempt.find({ userId, quizId: { $in: quizIds } })
+      .populate('quizId')
+      .populate('gradedBy', 'name email');
+
+    return res.status(200).json({ submissions, attempts, assignments, quizzes });
+  } catch (error: any) {
+    console.error("Get student progress error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
+export const getCourseAnalytics = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const instituteId = req.user?.instituteId;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({ message: "Authentication failed: Missing user details." });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    // Authorization check
+    if (userRole === "InstituteAdmin") {
+      if (!instituteId || course.instituteId.toString() !== instituteId.toString()) {
+        return res.status(403).json({ message: "Access denied: Course belongs to another institute." });
+      }
+    } else {
+      const enrollment = await Enrollment.findOne({
+        userId,
+        courseId,
+        status: "Approved",
+        role: "Faculty"
+      });
+      if (!enrollment) {
+        return res.status(403).json({ message: "Access denied: You are not approved faculty in this course." });
+      }
+    }
+
+    const studentEnrollments = await Enrollment.find({ courseId, role: "Student", status: "Approved" }).populate("userId", "name email");
+    const students = studentEnrollments.map(e => e.userId).filter(Boolean);
+
+    const assignments = await Assignment.find({ courseId });
+    const assignmentIds = assignments.map(a => a._id);
+    const submissions = await Submission.find({ assignmentId: { $in: assignmentIds } })
+      .populate('assignmentId')
+      .populate('gradedBy', 'name email');
+
+    const quizzes = await Quiz.find({ courseId });
+    const quizIds = quizzes.map(q => q._id);
+    const attempts = await QuizAttempt.find({ quizId: { $in: quizIds } })
+      .populate('quizId')
+      .populate('gradedBy', 'name email');
+
+    return res.status(200).json({ students, submissions, attempts, assignments, quizzes });
+  } catch (error: any) {
+    console.error("Get course analytics error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
+// Get Pending Tasks for Student
+export const getStudentTasks = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication failed." });
+    }
+
+    // 1. Get all approved courses for student
+    const enrollments = await Enrollment.find({ userId, role: "Student", status: "Approved" }).populate('courseId', 'name studentCode');
+    const courseIds = enrollments.map(e => (e.courseId as any)?._id || e.courseId).filter(Boolean);
+
+    // 2. Fetch all assignments and quizzes for these courses
+    const assignments = await Assignment.find({ courseId: { $in: courseIds } }).populate('courseId', 'name studentCode');
+    const quizzes = await Quiz.find({ courseId: { $in: courseIds } }).populate('courseId', 'name studentCode');
+
+    // 3. Fetch user submissions and attempts
+    const submissions = await Submission.find({ studentId: userId });
+    const attempts = await QuizAttempt.find({ userId: userId });
+
+    const submissionIds = new Set(submissions.map(s => s.assignmentId?.toString()));
+    const attemptQuizIds = new Set(attempts.map(a => a.quizId?.toString()));
+
+    const pendingAssignments = assignments.filter(a => !submissionIds.has(a._id.toString()));
+    const pendingQuizzes = quizzes.filter(q => !attemptQuizIds.has(q._id.toString()));
+
+    return res.status(200).json({ pendingAssignments, pendingQuizzes });
+  } catch (error: any) {
+    console.error("Get student tasks error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
+// Get Pending Grading Tasks for Faculty
+export const getPendingGradingTasks = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const instituteId = req.user?.instituteId;
+
+    if (!userId || !["Faculty", "InstituteAdmin", "SuperAdmin"].includes(userRole || "")) {
+      return res.status(401).json({ message: "Authentication failed." });
+    }
+
+    let courseIds: string[] = [];
+
+    if (userRole === "InstituteAdmin") {
+       const courses = await Course.find({ instituteId });
+       courseIds = courses.map(c => c._id.toString());
+    } else if (userRole === "SuperAdmin") {
+       const courses = await Course.find();
+       courseIds = courses.map(c => c._id.toString());
+    } else {
+       const enrollments = await Enrollment.find({ userId, role: "Faculty", status: "Approved" });
+       courseIds = enrollments.map(e => e.courseId?.toString()).filter(Boolean) as string[];
+    }
+
+    const assignments = await Assignment.find({ courseId: { $in: courseIds } });
+    const assignmentIds = assignments.map(a => a._id);
+
+    const pendingSubmissions = await Submission.find({ 
+      assignmentId: { $in: assignmentIds },
+      graded: false 
+    }).populate('studentId', 'name email').populate({
+      path: 'assignmentId',
+      populate: { path: 'courseId', select: 'name studentCode' }
+    });
+
+    const quizzes = await Quiz.find({ courseId: { $in: courseIds } });
+    const quizIds = quizzes.map(q => q._id);
+
+    const pendingQuizAttempts = await QuizAttempt.find({
+      quizId: { $in: quizIds },
+      status: "submitted",
+      graded: false
+    }).populate('userId', 'name email').populate({
+      path: 'quizId',
+      populate: { path: 'courseId', select: 'name studentCode' }
+    });
+
+    return res.status(200).json({ pendingSubmissions, pendingQuizAttempts });
+  } catch (error: any) {
+    console.error("Get pending grading error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
+// Get Pending Grading for a Specific Course
+export const getCoursePendingGrading = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const { courseId } = req.params;
+
+    if (!userId || !["Faculty", "InstituteAdmin", "SuperAdmin"].includes(userRole || "")) {
+      return res.status(401).json({ message: "Authentication failed." });
+    }
+
+    const assignments = await Assignment.find({ courseId });
+    const assignmentIds = assignments.map(a => a._id);
+
+    const pendingSubmissions = await Submission.find({ 
+      assignmentId: { $in: assignmentIds },
+      graded: false 
+    }).populate('studentId', 'name email').populate({
+      path: 'assignmentId',
+      populate: { path: 'courseId', select: 'name studentCode' }
+    });
+
+    const quizzes = await Quiz.find({ courseId });
+    const quizIds = quizzes.map(q => q._id);
+
+    const pendingQuizAttempts = await QuizAttempt.find({
+      quizId: { $in: quizIds },
+      status: "submitted",
+      graded: false
+    }).populate('userId', 'name email').populate({
+      path: 'quizId',
+      populate: { path: 'courseId', select: 'name studentCode' }
+    });
+
+    return res.status(200).json({ pendingSubmissions, pendingQuizAttempts });
+  } catch (error: any) {
+    console.error("Get course pending grading error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+

@@ -162,6 +162,7 @@ export const getSubmissions = async (req: AuthenticatedRequest, res: Response) =
 
     const submissions = await Submission.find(query)
       .populate("studentId", "name email")
+      .populate("gradedBy", "name email")
       .sort({ submittedAt: -1 });
 
     return res.status(200).json(submissions);

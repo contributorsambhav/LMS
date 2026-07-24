@@ -42,6 +42,10 @@ export default function StudentDashboard() {
   const [editAddress, setEditAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
+  // Pending Tasks State
+  const [pendingTasks, setPendingTasks] = useState<{ assignments: any[], quizzes: any[] }>({ assignments: [], quizzes: [] });
+  const [loadingTasks, setLoadingTasks] = useState(false);
+
   // Fetch enrollments from backend when session is ready
   const fetchEnrollments = async (token: string) => {
     try {
@@ -130,6 +134,30 @@ export default function StudentDashboard() {
   useEffect(() => {
     if (activeTab === 'calendar' && session?.token && allSessions.length === 0) {
       fetchAllSessions();
+    }
+  }, [activeTab, session?.token]);
+
+  const fetchPendingTasks = async () => {
+    if (!session?.token) return;
+    setLoadingTasks(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/courses/my-tasks`, {
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingTasks({ assignments: data.pendingAssignments || [], quizzes: data.pendingQuizzes || [] });
+      }
+    } catch (e) {
+      console.error("Failed to fetch tasks:", e);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'tasks' && session?.token && pendingTasks.assignments.length === 0 && pendingTasks.quizzes.length === 0) {
+      fetchPendingTasks();
     }
   }, [activeTab, session?.token]);
 
@@ -341,6 +369,14 @@ export default function StudentDashboard() {
         >
           <Calendar className="h-3.5 w-3.5" />
           Schedule
+        </button>
+        <button 
+          onClick={() => setActiveTab('tasks')} 
+          className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
+            activeTab === 'tasks' ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Pending Tasks
         </button>
         <button 
           onClick={() => setActiveTab('profile')} 
@@ -672,6 +708,80 @@ export default function StudentDashboard() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Pending Tasks Tab View */}
+      {activeTab === 'tasks' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Pending Tasks</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Assignments and quizzes you haven't completed yet.</p>
+          </div>
+          
+          {loadingTasks ? (
+            <div className="flex h-32 items-center justify-center">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending Assignments ({pendingTasks.assignments.length})</h4>
+                {pendingTasks.assignments.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending assignments.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingTasks.assignments.map(a => (
+                      <div key={a._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">Assignment</span>
+                            <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-mono">{a.courseId?.studentCode}</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{a.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{a.description}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-[10px]">
+                          <span className="text-destructive font-medium">Due: {new Date(a.deadline).toLocaleDateString()}</span>
+                          <button onClick={() => { setActiveTab('courses'); openCourseDetails(a.courseId); }} className="text-primary hover:underline font-semibold cursor-pointer">Go to Course</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending Quizzes ({pendingTasks.quizzes.length})</h4>
+                {pendingTasks.quizzes.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending quizzes.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingTasks.quizzes.map(q => (
+                      <div key={q._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">Quiz</span>
+                            <span className="text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded font-mono">{q.courseId?.studentCode}</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{q.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{q.description}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-between items-center text-[10px]">
+                          <span className="text-destructive font-medium">{q.deadline ? `Due: ${new Date(q.deadline).toLocaleDateString()}` : 'No Deadline'}</span>
+                          <button onClick={() => { setActiveTab('courses'); openCourseDetails(q.courseId); }} className="text-primary hover:underline font-semibold cursor-pointer">Go to Course</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

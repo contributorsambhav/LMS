@@ -326,7 +326,8 @@ export const getQuizAttempts = async (req: AuthenticatedRequest, res: Response) 
 
     const attempts = await QuizAttempt.find(query)
       .populate("userId", "name email")
-      .sort({ createdAt: -1 });
+      .populate("gradedBy", "name email")
+      .sort({ startedAt: -1 });
 
     return res.status(200).json(attempts);
   } catch (error: any) {
