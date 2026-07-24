@@ -667,10 +667,7 @@ export default function FacultyDashboard() {
           </h1>
           <p className="text-xs text-muted-foreground mt-1">Welcome back, {session.name}. Publish syllabuses, direct classrooms, and evaluate courses.</p>
         </div>
-        <div className="rounded-md bg-secondary border border-border px-3 py-1.5 text-xs text-muted-foreground font-medium self-start md:self-auto flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          Role: Faculty Member
-        </div>
+        
       </div>
 
       {/* Tabs Selector */}
@@ -801,19 +798,6 @@ export default function FacultyDashboard() {
                     {joining ? 'Registering...' : 'Submit Join Code'}
                   </button>
                 </form>
-              </div>
-
-              {/* Quick Actions Panel */}
-              <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-                <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-                  <Plus className="h-4.5 w-4.5 text-muted-foreground" /> Actions Panel
-                </h3>
-                <button 
-                  onClick={() => setActiveTab('affiliation')}
-                  className="w-full rounded-md bg-secondary hover:bg-secondary/80 text-foreground border border-border py-2 text-xs font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Building2 className="h-3.5 w-3.5" /> Manage Institute Affiliation
-                </button>
               </div>
 
               {/* Upcoming Sessions Widget */}

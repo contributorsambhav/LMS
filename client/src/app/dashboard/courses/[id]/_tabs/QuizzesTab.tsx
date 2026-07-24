@@ -119,21 +119,37 @@ export default function QuizzesTab(props: QuizzesTabProps) {
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
-                            quiz.testType === 'Handgraded' 
-                              ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' 
-                              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          }`}>
-                            {quiz.testType || 'Autogradable'}
-                          </span>
-                          {quiz.deadline && (
-                            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${
-                              isDeadlinePassed 
-                                ? 'bg-destructive/10 text-destructive' 
-                                : 'bg-secondary text-muted-foreground'
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                              quiz.testType === 'Handgraded' 
+                                ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' 
+                                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                             }`}>
-                              {isDeadlinePassed ? 'Closed' : `Ends ${new Date(quiz.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                              {quiz.testType || 'Autograded'}
                             </span>
+                            {quiz.deadline && (
+                              <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${
+                                isDeadlinePassed 
+                                  ? 'bg-destructive/10 text-destructive' 
+                                  : 'bg-secondary text-muted-foreground'
+                              }`}>
+                                {isDeadlinePassed ? 'Closed' : `Ends ${new Date(quiz.deadline).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
+                              </span>
+                            )}
+                          </div>
+                          {(isAdmin || isFaculty) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDeleteQuiz(quiz._id);
+                              }}
+                              className="p-1 rounded text-destructive hover:bg-destructive/15 transition-colors cursor-pointer relative z-10"
+                              title="Delete Quiz"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
                           )}
                         </div>
 
@@ -204,7 +220,7 @@ export default function QuizzesTab(props: QuizzesTabProps) {
                                 ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' 
                                 : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                             }`}>
-                              {selectedQuiz.testType || 'Autogradable'} Test
+                              {selectedQuiz.testType || 'Autograded'} Test
                             </span>
                             {selectedQuiz.deadline && (
                               <span className="text-[10px] text-muted-foreground font-mono">

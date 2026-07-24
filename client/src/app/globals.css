@@ -25,25 +25,25 @@
   }
 
   .dark {
-    --background: hsl(240, 10%, 8%);          /* Dark gray, NOT pure black */
-    --foreground: hsl(0, 0%, 95%);            /* Near-white */
-    --card: hsl(240, 10%, 12%);               /* Slightly lighter gray */
-    --card-foreground: hsl(0, 0%, 95%);
-    --popover: hsl(240, 10%, 12%);
-    --popover-foreground: hsl(0, 0%, 95%);
-    --primary: hsl(262, 83%, 65%);            /* Lighter purple for dark mode contrast */
+    --background: hsl(240, 10%, 6%);          /* Sleek dark background */
+    --foreground: hsl(0, 0%, 98%);            /* Crisp white text */
+    --card: hsl(240, 10%, 11%);               /* High contrast card background */
+    --card-foreground: hsl(0, 0%, 98%);
+    --popover: hsl(240, 10%, 11%);
+    --popover-foreground: hsl(0, 0%, 98%);
+    --primary: hsl(262, 85%, 68%);            /* Vibrant purple brand color */
     --primary-foreground: hsl(0, 0%, 100%);
-    --secondary: hsl(240, 6%, 18%);
-    --secondary-foreground: hsl(0, 0%, 95%);
-    --muted: hsl(240, 6%, 18%);
-    --muted-foreground: hsl(240, 5%, 55%);
-    --accent: hsl(240, 6%, 18%);
-    --accent-foreground: hsl(0, 0%, 95%);
-    --destructive: hsl(0, 62%, 30%);
-    --destructive-foreground: hsl(0, 0%, 95%);
-    --border: hsl(240, 6%, 20%);              /* Subtle gray border */
-    --input: hsl(240, 6%, 20%);
-    --ring: hsl(262, 83%, 65%);
+    --secondary: hsl(240, 6%, 16%);
+    --secondary-foreground: hsl(0, 0%, 98%);
+    --muted: hsl(240, 6%, 16%);
+    --muted-foreground: hsl(240, 5%, 72%);    /* High visibility secondary text */
+    --accent: hsl(240, 6%, 16%);
+    --accent-foreground: hsl(0, 0%, 98%);
+    --destructive: hsl(0, 84%, 60%);
+    --destructive-foreground: hsl(0, 0%, 100%);
+    --border: hsl(240, 6%, 22%);              /* Distinct card borders */
+    --input: hsl(240, 6%, 22%);
+    --ring: hsl(262, 85%, 68%);
   }
 }
 

@@ -137,7 +137,23 @@ export default function AssignmentsTab(props: AssignmentsTabProps) {
                       >
                         <div className="flex justify-between items-start gap-2 mb-1">
                           <h4 className="text-xs font-bold text-foreground line-clamp-1">{assignment.title}</h4>
-                          {studentStatusBadge}
+                          <div className="flex items-center gap-1">
+                            {studentStatusBadge}
+                            {(isAdmin || isFaculty) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeleteAssignment(assignment._id);
+                                }}
+                                className="p-1 rounded text-destructive hover:bg-destructive/15 transition-colors cursor-pointer relative z-10"
+                                title="Delete Assignment"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">{assignment.description}</p>
                         

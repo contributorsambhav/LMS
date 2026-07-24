@@ -922,16 +922,16 @@ export default function CourseModals(props: any) {
                   <button
                     type="button"
                     onClick={() => {
-                      setQuizTestType('Autogradable');
+                      setQuizTestType('Autograded');
                     }}
                     className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
-                      quizTestType === 'Autogradable'
+                      quizTestType === 'Autograded'
                         ? 'border-emerald-500 bg-emerald-500/10 text-foreground font-bold'
                         : 'border-border bg-background text-muted-foreground hover:bg-secondary/20'
                     }`}
                   >
                     <div className="text-xs font-bold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                      Autogradable
+                      Autograded
                     </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5 font-normal">
                       Single & Multiple Correct MCQs. Autograded instantly upon submission.

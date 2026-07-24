@@ -750,6 +750,57 @@ export const getCourseMaterials = async (req: AuthenticatedRequest, res: Respons
   }
 };
 
+export const deleteCourseMaterial = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { courseId, materialId } = req.params;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const instituteId = req.user?.instituteId;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({ message: "Authentication failed: Missing user details." });
+    }
+
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    // Authorization check
+    if (userRole === "InstituteAdmin") {
+      if (!instituteId || course.instituteId.toString() !== instituteId.toString()) {
+        return res.status(403).json({ message: "Access denied." });
+      }
+    } else if (userRole === "Faculty") {
+      const enrollment = await Enrollment.findOne({
+        userId,
+        courseId,
+        role: "Faculty",
+        status: "Approved"
+      });
+      if (!enrollment) {
+        return res.status(403).json({ message: "Access denied." });
+      }
+    } else {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    const material = await Material.findById(materialId);
+    if (!material) {
+      return res.status(404).json({ message: "Material not found." });
+    }
+    if (material.courseId.toString() !== courseId) {
+      return res.status(400).json({ message: "Material does not belong to this course." });
+    }
+
+    await Material.findByIdAndDelete(materialId);
+    return res.status(200).json({ message: "Material deleted successfully." });
+  } catch (error: any) {
+    console.error("Delete course material error:", error);
+    return res.status(500).json({ message: "Internal server error.", error: error.message });
+  }
+};
+
 export const getCourseById = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { courseId } = req.params;

@@ -337,10 +337,7 @@ export default function StudentDashboard() {
           </h1>
           <p className="text-xs text-muted-foreground mt-1">Welcome back, {session.name}. Track your enrolled courses, schedules, and active classrooms.</p>
         </div>
-        <div className="rounded-md bg-secondary border border-border px-3 py-1.5 text-xs text-muted-foreground font-medium self-start md:self-auto flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          Role: Student
-        </div>
+        
       </div>
 
       {/* Tabs Selector */}

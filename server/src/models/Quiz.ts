@@ -16,7 +16,7 @@ export interface IQuiz extends Document {
   courseId: Schema.Types.ObjectId;
   title: string;
   description?: string;
-  testType: "Autogradable" | "Handgraded";
+  testType: "Autograded" | "Handgraded";
   timeLimit?: number; // In minutes, optional
   deadline?: Date; // Deadline date for submission
   questions: IQuestion[];
@@ -46,7 +46,7 @@ const QuizSchema = new Schema<IQuiz>(
     courseId: { type: Schema.Types.ObjectId, ref: "Course", required: true },
     title: { type: String, required: true, trim: true },
     description: { type: String },
-    testType: { type: String, enum: ["Autogradable", "Handgraded"], default: "Autogradable" },
+    testType: { type: String, enum: ["Autograded", "Handgraded"], default: "Autograded" },
     timeLimit: { type: Number, default: 0 }, // 0 or undefined means no limit
     deadline: { type: Date },
     questions: [QuestionSchema],

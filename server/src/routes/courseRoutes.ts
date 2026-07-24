@@ -15,6 +15,7 @@ import {
   getInstituteStudents,
   addCourseMaterial,
   getCourseMaterials,
+  deleteCourseMaterial,
   getCourseById,
   updateCourse,
   deleteCourse,
@@ -91,6 +92,7 @@ router.delete("/:courseId/students/:studentId", authenticate, checkApproved, che
 // Independent Course Materials
 router.post("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), upload.single("pdf"), addCourseMaterial);
 router.get("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty", "Student"]), getCourseMaterials);
+router.delete("/:courseId/materials/:materialId", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), deleteCourseMaterial);
 
 // Student Progress
 router.get("/:courseId/progress", authenticate, checkApproved, checkRole(["Student"]), getStudentProgress);

@@ -123,6 +123,8 @@ export default function VideoPlayer({ src, lessonId, initialTime = 0, onProgress
       <video
         ref={videoRef}
         src={src}
+        controlsList="nodownload"
+        onContextMenu={(e) => e.preventDefault()}
         onClick={togglePlay}
         onPause={() => {
           setIsPlaying(false);

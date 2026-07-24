@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Plus, ExternalLink } from 'lucide-react';
+import { FileText, Plus, ExternalLink, Trash2, Eye } from 'lucide-react';
 import { API_BASE_URL } from '../../../../../lib/api';
 
 interface MaterialsTabProps {
@@ -7,13 +7,15 @@ interface MaterialsTabProps {
   isAdmin: boolean;
   isFaculty: boolean;
   setShowAddMaterialModal: (show: boolean) => void;
+  handleDeleteMaterial: (id: string) => void;
 }
 
 export default function MaterialsTab({
   materials,
   isAdmin,
   isFaculty,
-  setShowAddMaterialModal
+  setShowAddMaterialModal,
+  handleDeleteMaterial
 }: MaterialsTabProps) {
   return (
     <div className="space-y-6">
@@ -77,14 +79,31 @@ export default function MaterialsTab({
                       {new Date(mat.uploadedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
                     <td className="p-4 text-right">
-                      <a
-                        href={`${API_BASE_URL}${mat.filePath}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      >
-                        Download PDF <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <div className="flex justify-end items-center gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            window.open(`${API_BASE_URL}${mat.filePath}#toolbar=0`, '_blank', 'noopener,noreferrer');
+                          }}
+                          onContextMenu={(e) => e.preventDefault()}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"
+                        >
+                          View PDF <Eye className="h-3 w-3" />
+                        </button>
+                        {(isAdmin || isFaculty) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleDeleteMaterial(mat._id);
+                            }}
+                            className="p-1 rounded text-destructive hover:bg-destructive/15 transition-colors cursor-pointer"
+                            title="Delete Material"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

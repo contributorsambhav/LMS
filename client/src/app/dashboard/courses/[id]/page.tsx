@@ -90,7 +90,7 @@ export default function CourseDetailsPage() {
   const [subjectiveGrades, setSubjectiveGrades] = useState<{ [questionId: string]: number }>({});
   const [quizTitle, setQuizTitle] = useState('');
   const [quizDesc, setQuizDesc] = useState('');
-  const [quizTestType, setQuizTestType] = useState<'Autogradable' | 'Handgraded'>('Autogradable');
+  const [quizTestType, setQuizTestType] = useState<'Autograded' | 'Handgraded'>('Autograded');
   const [quizDeadlineOption, setQuizDeadlineOption] = useState<'none' | '1day' | '3days' | '1week' | '2weeks' | 'custom'>('none');
   const [quizCustomDeadline, setQuizCustomDeadline] = useState('');
   const [quizTimeLimit, setQuizTimeLimit] = useState<number>(0);
@@ -193,6 +193,11 @@ export default function CourseDetailsPage() {
   const isAdmin = session?.role === 'admin';
   const isFaculty = session?.role === 'faculty';
   const isStudent = session?.role === 'student';
+
+  const forceRefresh = () => {
+    fetchCourseData();
+    router.refresh();
+  };
 
   const fetchCourseData = async () => {
     if (!session?.token || !courseId) return;
@@ -449,7 +454,7 @@ export default function CourseDetailsPage() {
         setSessionFiles(null);
         setAutoGenerateZoom(true);
         // Refresh
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => setShowAddSessionModal(false), 1200);
       }
     } catch (err) {
@@ -490,13 +495,31 @@ export default function CourseDetailsPage() {
         setMaterialSuccess('Material uploaded successfully!');
         setMaterialTitle('');
         setMaterialFile(null);
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => setShowAddMaterialModal(false), 1200);
       }
     } catch (err) {
       setMaterialError('Network error uploading material.');
     } finally {
       setMaterialSubmitting(false);
+    }
+  };
+
+  const handleDeleteMaterial = async (materialId: string) => {
+    if (!session?.token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/materials/${materialId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.message || 'Failed to delete material.');
+      }
+      forceRefresh();
+    } catch (err: any) {
+      alert(err?.message || 'Network error deleting material.');
+      forceRefresh();
     }
   };
 
@@ -529,7 +552,7 @@ export default function CourseDetailsPage() {
       } else {
         setEnrollSuccess(`Successfully enrolled ${selectedStudentIds.length} students.`);
         setSelectedStudentIds([]);
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => setShowAddStudentModal(false), 1200);
       }
     } catch (err) {
@@ -568,7 +591,7 @@ export default function CourseDetailsPage() {
       } else {
         setAssignSuccess(`Successfully assigned ${selectedFacultyIds.length} faculty.`);
         setSelectedFacultyIds([]);
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => setShowAssignFacultyModal(false), 1200);
       }
     } catch (err) {
@@ -593,7 +616,7 @@ export default function CourseDetailsPage() {
         body: JSON.stringify({ facultyId })
       });
       if (res.ok) {
-        fetchCourseData();
+        forceRefresh();
       } else {
         const data = await res.json();
         alert(data.message || 'Failed to unassign faculty.');
@@ -614,7 +637,7 @@ export default function CourseDetailsPage() {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
-        fetchCourseData();
+        forceRefresh();
       } else {
         const data = await res.json();
         alert(data.message || 'Failed to remove student.');
@@ -637,7 +660,7 @@ export default function CourseDetailsPage() {
         body: JSON.stringify({ status })
       });
       if (res.ok) {
-        fetchCourseData();
+        forceRefresh();
       } else {
         const data = await res.json();
         alert(data.message || 'Failed to update request.');
@@ -689,7 +712,7 @@ export default function CourseDetailsPage() {
         setLessonDesc('');
         setLessonDuration(0);
         setLessonFile(null);
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => {
           setShowAddLessonModal(false);
           setLessonCreateSuccess('');
@@ -712,7 +735,7 @@ export default function CourseDetailsPage() {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
-        fetchCourseData();
+        forceRefresh();
       } else {
         const data = await res.json();
         alert(data.message || 'Failed to delete lesson.');
@@ -761,7 +784,7 @@ export default function CourseDetailsPage() {
     setEditingQuizId(quiz._id);
     setQuizTitle(quiz.title || '');
     setQuizDesc(quiz.description || '');
-    setQuizTestType(quiz.testType || 'Autogradable');
+    setQuizTestType(quiz.testType || 'Autograded');
     setQuizTimeLimit(quiz.timeLimit || 0);
     setQuizShuffleQuestions(quiz.shuffleQuestions || false);
     setQuizShuffleOptions(quiz.shuffleOptions || false);
@@ -852,13 +875,13 @@ export default function CourseDetailsPage() {
         setQuizSuccess(editingQuizId ? 'Quiz updated successfully!' : 'Quiz created successfully!');
         setQuizTitle('');
         setQuizDesc('');
-        setQuizTestType('Autogradable');
+        setQuizTestType('Autograded');
         setQuizDeadlineOption('none');
         setQuizCustomDeadline('');
         setQuizTimeLimit(0);
         setQuizQuestions([{ questionText: '', type: 'MCQ', options: ['', ''], correctAnswer: '0', correctAnswers: ['0'], points: 1, negativePoints: 0 }]);
         setEditingQuizId(null);
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => {
           setShowAddQuizModal(false);
           setQuizSuccess('');
@@ -871,23 +894,36 @@ export default function CourseDetailsPage() {
     }
   };
 
-  const handleDeleteQuiz = async (quizId: string) => {
-    if (!confirm('Are you sure you want to delete this quiz?')) return;
-    if (!session?.token) return;
+  const handleDeleteQuiz = async (quizParam: any) => {
+    const quizId = typeof quizParam === 'string' ? quizParam : (quizParam?._id || quizParam?.id);
+    if (!quizId) return;
+
+    // Bypassing window.confirm as some embedded browsers suppress it causing silent failures
+    // if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this quiz?')) return;
+
+    const token = session?.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : '');
+    if (!token) {
+      alert('Session token unavailable. Please re-login.');
+      return;
+    }
+
+    // Optimistic removal
+    setQuizzes((prev: any[]) => prev.filter(q => (q._id || q.id) !== quizId));
+    if ((selectedQuiz?._id || selectedQuiz?.id) === quizId) setSelectedQuiz(null);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/quizzes/${quizId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${session.token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) {
-        fetchCourseData();
-      } else {
+      if (!res.ok) {
         const data = await res.json();
         alert(data.message || 'Failed to delete quiz.');
       }
-    } catch (err) {
-      alert('Network error deleting quiz.');
+      forceRefresh(); // Force refresh to ensure sync
+    } catch (err: any) {
+      alert(err?.message || 'Network error deleting quiz.');
+      forceRefresh();
     }
   };
 
@@ -944,7 +980,7 @@ export default function CourseDetailsPage() {
         setShowTakeQuizModal(false);
         setSelectedQuiz(null);
         setQuizAnswers([]);
-        fetchCourseData();
+        forceRefresh();
       } else {
         alert(data.message || 'Failed to submit quiz attempt.');
       }
@@ -1052,7 +1088,7 @@ export default function CourseDetailsPage() {
         setAssignmentDeadline('');
         setAssignmentAttachmentUrl('');
         setAssignmentTotalMarks(100);
-        fetchCourseData();
+        forceRefresh();
         setTimeout(() => {
           setShowAddAssignmentModal(false);
           setAssignmentSuccess('');
@@ -1065,23 +1101,36 @@ export default function CourseDetailsPage() {
     }
   };
 
-  const handleDeleteAssignment = async (assignmentId: string) => {
-    if (!confirm('Are you sure you want to delete this assignment?')) return;
-    if (!session?.token) return;
+  const handleDeleteAssignment = async (assignmentParam: any) => {
+    const assignmentId = typeof assignmentParam === 'string' ? assignmentParam : (assignmentParam?._id || assignmentParam?.id);
+    if (!assignmentId) return;
+
+    // Bypassing window.confirm as some embedded browsers suppress it causing silent failures
+    // if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to delete this assignment?')) return;
+
+    const token = session?.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : '');
+    if (!token) {
+      alert('Session token unavailable. Please re-login.');
+      return;
+    }
+
+    // Optimistic removal
+    setAssignments((prev: any[]) => prev.filter(a => (a._id || a.id) !== assignmentId));
+    if ((selectedAssignment?._id || selectedAssignment?.id) === assignmentId) setSelectedAssignment(null);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/assignments/${assignmentId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${session.token}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.ok) {
-        fetchCourseData();
-      } else {
+      if (!res.ok) {
         const data = await res.json();
         alert(data.message || 'Failed to delete assignment.');
       }
-    } catch (err) {
-      alert('Network error deleting assignment.');
+      forceRefresh(); // Force refresh to ensure sync
+    } catch (err: any) {
+      alert(err?.message || 'Network error deleting assignment.');
+      forceRefresh();
     }
   };
 
@@ -1111,7 +1160,7 @@ export default function CourseDetailsPage() {
         setShowSubmitAssignmentModal(false);
         setSelectedAssignment(null);
         setAssignmentFile(null);
-        fetchCourseData();
+        forceRefresh();
       } else {
         alert(data.message || 'Failed to submit assignment.');
       }
@@ -1216,14 +1265,7 @@ export default function CourseDetailsPage() {
       {/* Header Panel */}
       <div className="bg-card border border-border rounded-xl p-6 md:p-8 flex flex-col md:flex-row justify-between gap-6 relative overflow-hidden">
         <div className="space-y-4 max-w-2xl relative z-10">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="rounded bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-semibold text-primary font-mono">
-              Code: {courseData.courseCode}
-            </span>
-            <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 capitalize">
-              {session?.role} view
-            </span>
-          </div>
+       
 
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{courseData.name}</h1>
@@ -1352,6 +1394,7 @@ export default function CourseDetailsPage() {
             isAdmin={isAdmin}
             isFaculty={isFaculty}
             setShowAddMaterialModal={setShowAddMaterialModal}
+            handleDeleteMaterial={handleDeleteMaterial}
           />
         )}
 

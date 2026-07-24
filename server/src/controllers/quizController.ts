@@ -29,7 +29,7 @@ export const createQuiz = async (req: AuthenticatedRequest, res: Response) => {
 
     // Determine effective testType (if any question is subjective, testType must be Handgraded)
     const hasSubjectiveQuestion = questions.some((q: any) => q.type === "Subjective");
-    const effectiveTestType = hasSubjectiveQuestion ? "Handgraded" : (testType || "Autogradable");
+    const effectiveTestType = hasSubjectiveQuestion ? "Handgraded" : (testType || "Autograded");
 
     const newQuiz = new Quiz({
       courseId,
@@ -284,7 +284,7 @@ export const submitQuizAttempt = async (req: AuthenticatedRequest, res: Response
 
     const { totalScore, updatedAnswers } = calculateAttemptScore(quiz, answers);
     const hasSubjective = quiz.questions.some((q: any) => q.type === "Subjective");
-    const graded = quiz.testType === "Autogradable" || !hasSubjective;
+    const graded = quiz.testType === "Autograded" || !hasSubjective;
 
     attempt.answers = updatedAnswers;
     attempt.score = totalScore;

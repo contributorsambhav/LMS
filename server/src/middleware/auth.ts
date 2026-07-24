@@ -44,13 +44,24 @@ export const authenticate = async (req: AuthenticatedRequest, res: Response, nex
   }
 };
 
-export const checkRole = (allowedRoles: ("SuperAdmin" | "InstituteAdmin" | "Faculty" | "Student")[]) => {
+export const checkRole = (allowedRoles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ message: "Access denied: User not authenticated." });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    const normalizedUserRole = (req.user.role || "").toLowerCase();
+    const isAllowed = allowedRoles.some((role) => {
+      const r = role.toLowerCase();
+      if (r === normalizedUserRole) return true;
+      if ((r === 'faculty' || r === 'teacher') && (normalizedUserRole === 'faculty' || normalizedUserRole === 'teacher')) return true;
+      if ((r === 'instituteadmin' || r === 'admin') && (normalizedUserRole === 'instituteadmin' || normalizedUserRole === 'admin')) return true;
+      if ((r === 'superadmin' || r === 'super') && (normalizedUserRole === 'superadmin' || normalizedUserRole === 'super')) return true;
+      if (r === 'student' && normalizedUserRole === 'student') return true;
+      return false;
+    });
+
+    if (!isAllowed) {
       return res.status(403).json({ 
         message: `Access denied: Required role not found. Allowed roles: ${allowedRoles.join(", ")}` 
       });

@@ -400,10 +400,7 @@ export default function AdminDashboard() {
           </h1>
           <p className="text-xs text-muted-foreground mt-1">Manage your institute: courses, rosters, and billing.</p>
         </div>
-        <div className="rounded-md bg-secondary border border-border px-3 py-1.5 text-xs text-muted-foreground font-medium self-start md:self-auto flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-          Tenant: {session.instituteId ? 'Linked Tenant' : 'No Tenant Linked'}
-        </div>
+        
       </div>
 
       {/* Tabs */}
@@ -491,17 +488,7 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Quick Actions</h3>
-              </div>
-
-              <div className="bg-card border border-border rounded-lg p-6 space-y-3">
-                <button className="w-full rounded-md border border-border bg-card px-4 py-2.5 text-left text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer">Onboard Faculty Roster</button>
-                <button className="w-full rounded-md border border-border bg-card px-4 py-2.5 text-left text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer">Onboard Student Roster</button>
-                <button className="w-full rounded-md border border-border bg-card px-4 py-2.5 text-left text-xs font-medium text-foreground hover:bg-secondary transition-colors cursor-pointer">Generate Reports</button>
-              </div>
-            </div>
+            
           </div>
         </div>
       )}

@@ -16,6 +16,7 @@ interface DoubtThread {
   studentId: User;
   facultyId?: User;
   status: "open" | "resolved";
+  resolvedByName?: string;
   subject: string;
   updatedAt: string;
   createdAt: string;
@@ -29,7 +30,7 @@ interface Message {
   createdAt: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const DOUBT_SERVICE_URL = process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL || "http://localhost:5001";
 
 export default function CourseDoubts({ courseId }: { courseId: string }) {
   const session = useUser();
@@ -48,7 +49,7 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
   const fetchThreads = async () => {
     if (!session?.token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/doubts/course/${courseId}`, {
+      const res = await fetch(`${DOUBT_SERVICE_URL}/api/doubts/course/${courseId}`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -63,7 +64,7 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
   const fetchMessages = async (threadId: string) => {
     if (!session?.token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/doubts/${threadId}/messages`, {
+      const res = await fetch(`${DOUBT_SERVICE_URL}/api/doubts/${threadId}/messages`, {
         headers: { Authorization: `Bearer ${session.token}` }
       });
       if (res.ok) {
@@ -82,7 +83,7 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
   useEffect(() => {
     if (!session?.token) return;
 
-    const newSocket = io(API_BASE_URL, {
+    const newSocket = io(DOUBT_SERVICE_URL, {
       auth: { token: session.token }
     });
 
@@ -124,7 +125,7 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
     if (!session?.token || !newSubject.trim()) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/doubts`, {
+      const res = await fetch(`${DOUBT_SERVICE_URL}/api/doubts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -153,7 +154,7 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
     setInputText("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/doubts/${activeThread._id}/messages`, {
+      const res = await fetch(`${DOUBT_SERVICE_URL}/api/doubts/${activeThread._id}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -172,13 +173,13 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
     if (!session?.token || !activeThread) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/doubts/${activeThread._id}/status`, {
+      const res = await fetch(`${DOUBT_SERVICE_URL}/api/doubts/${activeThread._id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.token}`
         },
-        body: JSON.stringify({ status: "resolved" })
+        body: JSON.stringify({ status: "resolved", resolvedByName: session.name })
       });
       if (res.ok) {
         const updated = await res.json();
@@ -235,6 +236,9 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
                   <p className="text-[10px] text-muted-foreground">From: {thread.studentId?.name}</p>
                 )}
                 <p className="text-[9px] text-muted-foreground mt-1 text-right">
+                  {thread.status === 'resolved' && thread.resolvedByName && (
+                    <span className="text-emerald-500/70 mr-1">Resolved by {thread.resolvedByName} • </span>
+                  )}
                   {new Date(thread.updatedAt).toLocaleDateString()}
                 </p>
               </div>
@@ -343,7 +347,7 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
               </div>
             ) : (
               <div className="p-4 bg-secondary/10 border-t border-border text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-                <Info className="w-4 h-4" /> This doubt thread has been resolved and closed.
+                <Info className="w-4 h-4" /> This doubt thread was resolved {activeThread.resolvedByName ? `by ${activeThread.resolvedByName}` : 'and closed'}.
               </div>
             )}
           </>
