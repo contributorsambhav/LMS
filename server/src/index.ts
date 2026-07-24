@@ -12,11 +12,32 @@ import courseRoutes from "./routes/courseRoutes";
 import quizRoutes from "./routes/quizRoutes";
 import assignmentRoutes from "./routes/assignmentRoutes";
 import lessonRoutes from "./routes/lessonRoutes";
+import doubtRoutes from "./routes/doubtRoutes";
+import http from "http";
+import { Server } from "socket.io";
+import { initializeSocket } from "./sockets/doubtHandler";
 
 // Load environment variables from .env
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // Adjust in production
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
+  }
+});
+
+// Initialize socket handlers
+initializeSocket(io);
+
+// Make io accessible in routes
+app.use((req: any, res: any, next: any) => {
+  req.io = io;
+  next();
+});
+
 const PORT = process.env.PORT || 5000;
 
 // Enable CORS
@@ -36,6 +57,7 @@ app.use("/api/courses", courseRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/lessons", lessonRoutes);
+app.use("/api/doubts", doubtRoutes);
 
 // Zoom integration status check
 import { isZoomConfigured } from "./services/zoomService";
@@ -78,9 +100,9 @@ const startServer = async () => {
       ]);
     }
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`==================================================`);
-      console.log(`LumenLMS Server is active and listening on port ${PORT}`);
+      console.log(`LumenLMS Server (with Socket.io) is active and listening on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`==================================================`);
     });

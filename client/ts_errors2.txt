@@ -1,0 +1,7 @@
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(41,40): error TS2304: Cannot find name 'pendingRequests'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(44,98): error TS2304: Cannot find name 'pendingRequests'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(47,20): error TS2304: Cannot find name 'pendingRequests'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(47,41): error TS7006: Parameter 'req' implicitly has an 'any' type.
+src/app/dashboard/courses/[id]/page.tsx(23,25): error TS2307: Cannot find module './_tabs/ProgressTab' or its corresponding type declarations.
+src/app/dashboard/courses/[id]/page.tsx(1564,12): error TS2741: Property 'enrolledStudents' is missing in type '{ students: any[]; isAdmin: boolean; isFaculty: boolean; course: any; setShowAddStudentModal: Dispatch<SetStateAction<boolean>>; handleRemoveStudent: (studentId: string) => Promise<...>; ... 4 more ...; handleUnassignFaculty: (facultyId: string) => Promise<...>; }' but required in type 'RosterTabProps'.
+src/app/dashboard/courses/[id]/page.tsx(1589,10): error TS2367: This comparison appears to be unintentional because the types '"sessions" | "materials" | "lessons" | "quizzes" | "assignments" | "roster" | "progress" | "tasks" | "grading"' and '"doubts"' have no overlap.

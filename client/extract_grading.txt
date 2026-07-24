@@ -1,0 +1,63 @@
+        {activeTab === 'grading' && !isStudent && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div>
+              <h3 className="text-sm font-bold text-foreground">Pending Grading</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Submissions and Quiz attempts that require your evaluation for this course.</p>
+            </div>
+            
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ungraded Assignments ({pendingGrading.submissions.length})</h4>
+                {pendingGrading.submissions.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending assignments to grade.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingGrading.submissions.map((sub: any) => (
+                      <div key={sub._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">Assignment Submission</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{sub.assignmentId?.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1">Submitted by: {sub.studentId?.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Date: {new Date(sub.submittedAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-end items-center">
+                          <button onClick={() => { setActiveTab('assignments'); setSelectedAssignment(sub.assignmentId); fetchSubmissions(sub.assignmentId?._id); }} className="text-[10px] bg-primary text-primary-foreground px-3 py-1.5 rounded font-semibold cursor-pointer">Grade Assignment</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ungraded Quizzes ({pendingGrading.attempts.length})</h4>
+                {pendingGrading.attempts.length === 0 ? (
+                  <div className="bg-card border border-border rounded-lg p-6 text-center text-xs text-muted-foreground">
+                    No pending quizzes to grade.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {pendingGrading.attempts.map((att: any) => (
+                      <div key={att._id} className="bg-card border border-border rounded-lg p-4 transition-colors hover:bg-secondary/10 flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">Quiz Attempt</span>
+                          </div>
+                          <h5 className="font-semibold text-sm line-clamp-1">{att.quizId?.title}</h5>
+                          <p className="text-[11px] text-muted-foreground mt-1">Submitted by: {att.userId?.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Date: {att.completedAt ? new Date(att.completedAt).toLocaleDateString() : 'N/A'}</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border/50 flex justify-end items-center">
+                          <button onClick={() => { setActiveTab('quizzes'); setSelectedQuiz(att.quizId); fetchQuizAttempts(att.quizId?._id); }} className="text-[10px] bg-primary text-primary-foreground px-3 py-1.5 rounded font-semibold cursor-pointer">Grade Quiz</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>

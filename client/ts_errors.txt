@@ -1,0 +1,15 @@
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(31,40): error TS2304: Cannot find name 'pendingRequests'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(34,20): error TS2304: Cannot find name 'Sparkles'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(34,98): error TS2304: Cannot find name 'pendingRequests'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(37,20): error TS2304: Cannot find name 'pendingRequests'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(37,41): error TS7006: Parameter 'req' implicitly has an 'any' type.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(45,42): error TS2304: Cannot find name 'handleResolveEnrollment'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(51,42): error TS2304: Cannot find name 'handleResolveEnrollment'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(80,16): error TS2304: Cannot find name 'courseFaculty'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(86,20): error TS2304: Cannot find name 'courseFaculty'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(86,39): error TS7006: Parameter 'fac' implicitly has an 'any' type.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(94,42): error TS2304: Cannot find name 'handleUnassignFaculty'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(124,16): error TS2304: Cannot find name 'students'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(136,20): error TS2304: Cannot find name 'students'.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(136,34): error TS7006: Parameter 'student' implicitly has an 'any' type.
+src/app/dashboard/courses/[id]/_tabs/RosterTab.tsx(148,28): error TS2304: Cannot find name 'Trash2'.

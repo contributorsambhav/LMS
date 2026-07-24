@@ -2,48 +2,48 @@
 
 @layer base {
   :root {
-    --background: HSL(210, 40%, 98%); /* Slate 50 */
-    --foreground: HSL(222.2, 47.4%, 11.2%); /* Slate 900 */
-    --card: HSL(0, 0%, 100%); /* Pure White */
-    --card-foreground: HSL(222.2, 47.4%, 11.2%);
-    --popover: HSL(0, 0%, 100%);
-    --popover-foreground: HSL(222.2, 47.4%, 11.2%);
-    --primary: HSL(221.2, 83.2%, 53.3%); /* Quiet Blue-600 */
-    --primary-foreground: HSL(210, 40%, 98%);
-    --secondary: HSL(210, 40%, 96.1%); /* Slate 100 */
-    --secondary-foreground: HSL(222.2, 47.4%, 11.2%);
-    --muted: HSL(210, 40%, 96.1%); /* Slate 100 */
-    --muted-foreground: HSL(215.4, 16.3%, 46.9%); /* Slate 500 */
-    --accent: HSL(210, 40%, 96.1%); /* Slate 100 */
-    --accent-foreground: HSL(222.2, 47.4%, 11.2%);
-    --destructive: HSL(0, 84.2%, 60.2%);
-    --destructive-foreground: HSL(210, 40%, 98%);
-    --border: HSL(214.3, 31.8%, 91.4%); /* Slate 200 */
-    --input: HSL(214.3, 31.8%, 91.4%); /* Slate 200 */
-    --ring: HSL(221.2, 83.2%, 53.3%);
-    --radius: 0.375rem; /* Clean minimalist rounding */
+    --background: hsl(0, 0%, 98%);           /* Near-white, neutral */
+    --foreground: hsl(240, 10%, 10%);         /* Near-black */
+    --card: hsl(0, 0%, 100%);                /* Pure white */
+    --card-foreground: hsl(240, 10%, 10%);
+    --popover: hsl(0, 0%, 100%);
+    --popover-foreground: hsl(240, 10%, 10%);
+    --primary: hsl(262, 83%, 58%);            /* Purple — brand color */
+    --primary-foreground: hsl(0, 0%, 100%);
+    --secondary: hsl(240, 5%, 96%);           /* Light gray */
+    --secondary-foreground: hsl(240, 10%, 10%);
+    --muted: hsl(240, 5%, 96%);
+    --muted-foreground: hsl(240, 4%, 46%);    /* Medium gray */
+    --accent: hsl(240, 5%, 96%);
+    --accent-foreground: hsl(240, 10%, 10%);
+    --destructive: hsl(0, 72%, 51%);          /* Red — errors/destructive only */
+    --destructive-foreground: hsl(0, 0%, 100%);
+    --border: hsl(240, 6%, 90%);              /* Subtle gray border */
+    --input: hsl(240, 6%, 90%);
+    --ring: hsl(262, 83%, 58%);               /* Purple focus ring */
+    --radius: 0.375rem;
   }
 
   .dark {
-    --background: HSL(222.2, 84%, 4.9%); /* Slate 950 */
-    --foreground: HSL(210, 40%, 98%); /* Slate 50 */
-    --card: HSL(222.2, 47.4%, 11.2%); /* Slate 900 */
-    --card-foreground: HSL(210, 40%, 98%);
-    --popover: HSL(222.2, 47.4%, 11.2%); /* Slate 900 */
-    --popover-foreground: HSL(210, 40%, 98%);
-    --primary: HSL(217.2, 91.2%, 59.8%); /* Quiet Blue-500 */
-    --primary-foreground: HSL(222.2, 84%, 4.9%);
-    --secondary: HSL(217.2, 32.6%, 17.5%); /* Slate 800 */
-    --secondary-foreground: HSL(210, 40%, 98%);
-    --muted: HSL(217.2, 32.6%, 17.5%); /* Slate 800 */
-    --muted-foreground: HSL(215, 20.2%, 65.1%); /* Slate 400 */
-    --accent: HSL(217.2, 32.6%, 17.5%); /* Slate 800 */
-    --accent-foreground: HSL(210, 40%, 98%);
-    --destructive: HSL(0, 62.8%, 30.6%);
-    --destructive-foreground: HSL(210, 40%, 98%);
-    --border: HSL(217.2, 32.6%, 17.5%); /* Slate 800 */
-    --input: HSL(217.2, 32.6%, 17.5%); /* Slate 800 */
-    --ring: HSL(217.2, 91.2%, 59.8%);
+    --background: hsl(240, 10%, 8%);          /* Dark gray, NOT pure black */
+    --foreground: hsl(0, 0%, 95%);            /* Near-white */
+    --card: hsl(240, 10%, 12%);               /* Slightly lighter gray */
+    --card-foreground: hsl(0, 0%, 95%);
+    --popover: hsl(240, 10%, 12%);
+    --popover-foreground: hsl(0, 0%, 95%);
+    --primary: hsl(262, 83%, 65%);            /* Lighter purple for dark mode contrast */
+    --primary-foreground: hsl(0, 0%, 100%);
+    --secondary: hsl(240, 6%, 18%);
+    --secondary-foreground: hsl(0, 0%, 95%);
+    --muted: hsl(240, 6%, 18%);
+    --muted-foreground: hsl(240, 5%, 55%);
+    --accent: hsl(240, 6%, 18%);
+    --accent-foreground: hsl(0, 0%, 95%);
+    --destructive: hsl(0, 62%, 30%);
+    --destructive-foreground: hsl(0, 0%, 95%);
+    --border: hsl(240, 6%, 20%);              /* Subtle gray border */
+    --input: hsl(240, 6%, 20%);
+    --ring: hsl(262, 83%, 65%);
   }
 }
 
@@ -77,14 +77,4 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-/* Redefined layout helpers to match minimalist specs */
-.glass {
-  background-color: var(--card);
-  border: 1px solid var(--border);
-}
-
-.mesh-bg {
-  background-color: var(--background);
 }

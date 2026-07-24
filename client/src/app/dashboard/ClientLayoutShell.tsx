@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, ArrowUpRight, BarChart3, BookOpen, Building, Calendar, CreditCard, FolderGit2, GraduationCap, LogOut, Menu, Settings, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Building, Calendar, CheckSquare, CreditCard, FolderGit2, GraduationCap, LogOut, Menu, MessageCircle, Settings, ShieldCheck, Users, X, ClipboardCheck } from 'lucide-react';
 import React, { useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
@@ -18,7 +18,10 @@ const IconMap: Record<string, React.ComponentType<any>> = {
   CreditCard,
   Activity,
   GraduationCap,
-  ShieldCheck
+  ShieldCheck,
+  MessageCircle,
+  CheckSquare,
+  ClipboardCheck
 };
 
 export interface NavItem {
@@ -37,9 +40,6 @@ export interface ClientLayoutShellProps {
   navLinks: NavItem[];
   roleMetadata: {
     title: string;
-    highlight: string;
-    text: string;
-    badge: string;
     icon: string;
   };
   children: React.ReactNode;
@@ -86,13 +86,13 @@ export default function ClientLayoutShell({ user, navLinks, roleMetadata, childr
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background text-foreground font-sans antialiased">
-      {/* 1. Mobile Header (Only on small viewports) */}
-      <header className="flex h-16 w-full shrink-0 items-center justify-between border-b border-border bg-card/85 px-4 backdrop-blur-md md:hidden fixed top-0 left-0 z-40">
+      {/* Mobile Header */}
+      <header className="flex h-14 w-full shrink-0 items-center justify-between border-b border-border bg-card px-4 md:hidden fixed top-0 left-0 z-40">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
             <RoleIcon className="h-4 w-4" />
           </div>
-          <span className="font-semibold tracking-tight text-foreground text-sm font-sans">LumenLMS</span>
+          <span className="font-semibold tracking-tight text-foreground text-sm">LumenLMS</span>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -102,17 +102,17 @@ export default function ClientLayoutShell({ user, navLinks, roleMetadata, childr
         </div>
       </header>
 
-      {/* 2. Responsive Sidebar (Desktop Left Drawer & Mobile slide-over) */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-border bg-card transition-all duration-300 md:static md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        {/* Sidebar Brand Logo */}
-        <div className="flex h-20 items-center justify-between border-b border-border px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20">
-              <RoleIcon className="h-4.5 w-4.5 text-primary" />
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-card transition-transform duration-200 md:static md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Brand */}
+        <div className="flex h-14 items-center justify-between border-b border-border px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <RoleIcon className="h-4 w-4" />
             </div>
             <div>
-              <span className="font-semibold tracking-tight text-foreground text-md font-sans">LumenLMS</span>
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{roleMetadata.title}</p>
+              <span className="font-semibold tracking-tight text-foreground text-sm">LumenLMS</span>
+              <p className="text-[10px] font-medium text-muted-foreground">{roleMetadata.title}</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground md:hidden transition-colors cursor-pointer">
@@ -120,35 +120,47 @@ export default function ClientLayoutShell({ user, navLinks, roleMetadata, childr
           </button>
         </div>
 
-        {/* Sidebar Nav Links */}
-        <nav className="flex-1 space-y-1 px-4 py-6 overflow-y-auto">
-          <div className="px-3 mb-2">
-            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Main Console</p>
-          </div>
+        {/* Navigation */}
+        <nav className="flex-1 space-y-0.5 px-3 py-4 overflow-y-auto">
           {navLinks.map((link) => {
             const LinkIcon = IconMap[link.icon] || Settings;
             const active = isLinkActive(link.href);
             return (
-              <Link key={link.label} href={link.href} onClick={() => setSidebarOpen(false)} className={`group flex items-center gap-3 rounded-md px-3.5 py-2.5 text-xs font-medium transition-colors ${active ? 'bg-secondary text-foreground border border-border' : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'}`}>
-                <LinkIcon className={`h-4 w-4 transition-colors ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`group flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors relative ${
+                  active
+                    ? 'bg-primary/5 text-foreground'
+                    : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+                }`}
+              >
+                {/* Purple left indicator for active state */}
+                {active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                )}
+                <LinkIcon className={`h-4 w-4 shrink-0 transition-colors ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
                 <span>{link.label}</span>
-                {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
               </Link>
             );
           })}
         </nav>
 
-        {/* Sidebar Footer User Card */}
-        <div className="border-t border-border p-4">
-          <div className="flex items-center gap-3 rounded-md bg-secondary/20 p-3 border border-border">
-            <img src={user.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}`} alt={user.name} className="h-9 w-9 rounded-md bg-muted object-cover border border-border" />
+        {/* User Card */}
+        <div className="border-t border-border p-3">
+          <div className="flex items-center gap-3 rounded-md p-2.5">
+            <img
+              src={user.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name)}`}
+              alt={user.name}
+              className="h-8 w-8 rounded-full bg-muted object-cover"
+            />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-foreground leading-none">{user.name}</p>
-              <p className="truncate text-[10px] text-muted-foreground mt-1">{user.email}</p>
-              <span className={`inline-block mt-1.5 rounded-md border px-2 py-0.5 text-[8px] font-medium uppercase tracking-wider leading-none bg-primary/10 text-primary border-primary/20`}>{user.role}</span>
+              <p className="truncate text-[13px] font-medium text-foreground leading-none">{user.name}</p>
+              <p className="truncate text-[11px] text-muted-foreground mt-0.5">{user.email}</p>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0">
               <ThemeToggle />
               <button onClick={handleSignOut} disabled={loggingOut} title="Sign Out" className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50 cursor-pointer">
                 <LogOut className="h-4 w-4" />
@@ -158,13 +170,13 @@ export default function ClientLayoutShell({ user, navLinks, roleMetadata, childr
         </div>
       </aside>
 
-      {/* 3. Backdrop for Mobile sidebar overlay */}
-      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-45 bg-black/40 backdrop-blur-sm md:hidden" />}
+      {/* Mobile Backdrop */}
+      {sidebarOpen && <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-45 bg-black/40 md:hidden" />}
 
-      {/* 4. Main Viewport Panel */}
-      <main className="flex flex-1 flex-col overflow-hidden pt-16 md:pt-0">
+      {/* Main Content */}
+      <main className="flex flex-1 flex-col overflow-hidden pt-14 md:pt-0">
         <div className="flex-1 overflow-y-auto bg-background p-6 md:p-8">
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-6xl">
             <UserProvider user={user}>{children}</UserProvider>
           </div>
         </div>
