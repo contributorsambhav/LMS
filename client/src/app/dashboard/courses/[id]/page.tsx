@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from 'react-toastify';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '../../../../lib/session';
@@ -20,6 +21,8 @@ import MaterialsTab from './_tabs/MaterialsTab';
 import QuizzesTab from './_tabs/QuizzesTab';
 import AssignmentsTab from './_tabs/AssignmentsTab';
 import RosterTab from './_tabs/RosterTab';
+import TasksTab from './_tabs/TasksTab';
+import GradingTab from './_tabs/GradingTab';
 import CourseDoubts from '../../../../components/CourseDoubts';
 import CourseModals from './_modals/CourseModals';
 
@@ -48,8 +51,9 @@ export default function CourseDetailsPage() {
   const [studentCourseProgress, setStudentCourseProgress] = useState<any>(null);
 
   // UI state
-  const [activeTab, setActiveTab] = useState<'lessons' | 'sessions' | 'materials' | 'quizzes' | 'assignments' | 'roster' | 'progress' | 'doubts'>('lessons');
+  const [activeTab, setActiveTab] = useState<'lessons' | 'sessions' | 'materials' | 'quizzes' | 'assignments' | 'roster' | 'progress' | 'doubts' | 'tasks' | 'grading'>('lessons');
   const [sessionView, setSessionView] = useState<'list' | 'calendar'>('list');
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   const [isCopied, setIsCopied] = useState<Record<string, boolean>>({});
   
   // Modal / Form toggle states
@@ -345,7 +349,7 @@ export default function CourseDetailsPage() {
   const handleUpdateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.token || !editName || !editCode) {
-      setEditError('Course Name and Course Code are required.');
+      toast.error('Course Name and Course Code are required.');
       return;
     }
     setEditError('');
@@ -367,19 +371,29 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setEditError(data.message || 'Failed to update course details.');
+        toast.error(data.message || 'Failed to update course details.');
       } else {
-        setEditSuccess('Course updated successfully!');
+        toast.success('Course updated successfully!');
         setCourseData(data.course);
         setTimeout(() => setShowEditModal(false), 1200);
       }
     } catch (err) {
-      setEditError('Network error updating course.');
+      toast.error('Network error updating course.');
     }
   };
 
   // Form - Delete Course
-  const handleDeleteCourse = async () => {
+  
+  const handleDeleteCourse = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Course',
+      message: 'Are you sure you want to delete this course entirely? This action cannot be undone.',
+      onConfirm: () => actual_handleDeleteCourse()
+    });
+  };
+  
+  const actual_handleDeleteCourse = async () => {
     if (!confirm('Are you absolutely sure you want to delete this course? This will permanently delete all classes, rosters, and uploaded materials.')) return;
     if (!session?.token) return;
 
@@ -392,10 +406,10 @@ export default function CourseDetailsPage() {
         router.push(`/dashboard/${session.role}`);
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to delete course.');
+        toast.error(data.message || 'Failed to delete course.');
       }
     } catch (err) {
-      alert('Network error deleting course.');
+      toast.error('Network error deleting course.');
     }
   };
 
@@ -404,11 +418,11 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (!sessionTitle || !sessionStart || !sessionEnd) {
-      setSessionError('Please fill in all mandatory fields.');
+      toast.error('Please fill in all mandatory fields.');
       return;
     }
     if (!autoGenerateZoom && !sessionLiveLink) {
-      setSessionError('Please provide a Live Link or enable Zoom auto-generation.');
+      toast.error('Please provide a Live Link or enable Zoom auto-generation.');
       return;
     }
     setSessionError('');
@@ -442,9 +456,9 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setSessionError(data.message || 'Failed to schedule session.');
+        toast.error(data.message || 'Failed to schedule session.');
       } else {
-        setSessionSuccess(data.message || 'Lecture session scheduled successfully!');
+        toast.success(data.message || 'Lecture session scheduled successfully!');
         // Reset form
         setSessionTitle('');
         setSessionDesc('');
@@ -458,7 +472,7 @@ export default function CourseDetailsPage() {
         setTimeout(() => setShowAddSessionModal(false), 1200);
       }
     } catch (err) {
-      setSessionError('Network error scheduling session.');
+      toast.error('Network error scheduling session.');
     } finally {
       setSessionSubmitting(false);
     }
@@ -469,7 +483,7 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (!materialFile) {
-      setMaterialError('Please select a PDF file.');
+      toast.error('Please select a PDF file.');
       return;
     }
 
@@ -490,22 +504,32 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setMaterialError(data.message || 'Failed to upload material.');
+        toast.error(data.message || 'Failed to upload material.');
       } else {
-        setMaterialSuccess('Material uploaded successfully!');
+        toast.success('Material uploaded successfully!');
         setMaterialTitle('');
         setMaterialFile(null);
         forceRefresh();
         setTimeout(() => setShowAddMaterialModal(false), 1200);
       }
     } catch (err) {
-      setMaterialError('Network error uploading material.');
+      toast.error('Network error uploading material.');
     } finally {
       setMaterialSubmitting(false);
     }
   };
 
-  const handleDeleteMaterial = async (materialId: string) => {
+  
+  const handleDeleteMaterial = (materialId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Material',
+      message: 'Are you sure you want to delete this material?',
+      onConfirm: () => actual_handleDeleteMaterial(materialId)
+    });
+  };
+  
+  const actual_handleDeleteMaterial = async (materialId: string) => {
     if (!session?.token) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/materials/${materialId}`, {
@@ -514,11 +538,11 @@ export default function CourseDetailsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.message || 'Failed to delete material.');
+        toast.error(data.message || 'Failed to delete material.');
       }
       forceRefresh();
     } catch (err: any) {
-      alert(err?.message || 'Network error deleting material.');
+      toast.error(err?.message || 'Network error deleting material.');
       forceRefresh();
     }
   };
@@ -528,7 +552,7 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (selectedStudentIds.length === 0) {
-      setEnrollError('Please select at least one student.');
+      toast.error('Please select at least one student.');
       return;
     }
 
@@ -548,15 +572,15 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setEnrollError(data.message || 'Failed to enroll students.');
+        toast.error(data.message || 'Failed to enroll students.');
       } else {
-        setEnrollSuccess(`Successfully enrolled ${selectedStudentIds.length} students.`);
+        toast.success(`Successfully enrolled ${selectedStudentIds.length} students.`);
         setSelectedStudentIds([]);
         forceRefresh();
         setTimeout(() => setShowAddStudentModal(false), 1200);
       }
     } catch (err) {
-      setEnrollError('Network error enrolling students.');
+      toast.error('Network error enrolling students.');
     } finally {
       setEnrollSubmitting(false);
     }
@@ -567,7 +591,7 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (selectedFacultyIds.length === 0) {
-      setAssignError('Please select at least one faculty member.');
+      toast.error('Please select at least one faculty member.');
       return;
     }
 
@@ -587,22 +611,32 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setAssignError(data.message || 'Failed to assign faculty.');
+        toast.error(data.message || 'Failed to assign faculty.');
       } else {
-        setAssignSuccess(`Successfully assigned ${selectedFacultyIds.length} faculty.`);
+        toast.success(`Successfully assigned ${selectedFacultyIds.length} faculty.`);
         setSelectedFacultyIds([]);
         forceRefresh();
         setTimeout(() => setShowAssignFacultyModal(false), 1200);
       }
     } catch (err) {
-      setAssignError('Network error assigning faculty.');
+      toast.error('Network error assigning faculty.');
     } finally {
       setAssignSubmitting(false);
     }
   };
 
   // Action - Unassign Faculty
-  const handleUnassignFaculty = async (facultyId: string) => {
+  
+  const handleUnassignFaculty = (facultyId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Unassign Faculty',
+      message: 'Are you sure you want to unassign this faculty member?',
+      onConfirm: () => actual_handleUnassignFaculty(facultyId)
+    });
+  };
+  
+  const actual_handleUnassignFaculty = async (facultyId: string) => {
     if (!confirm('Are you sure you want to unassign this faculty member from this course?')) return;
     if (!session?.token) return;
 
@@ -619,15 +653,25 @@ export default function CourseDetailsPage() {
         forceRefresh();
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to unassign faculty.');
+        toast.error(data.message || 'Failed to unassign faculty.');
       }
     } catch (err) {
-      alert('Network error unassigning faculty.');
+      toast.error('Network error unassigning faculty.');
     }
   };
 
   // Action - Remove Student
-  const handleRemoveStudent = async (studentId: string) => {
+  
+  const handleRemoveStudent = (studentId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Remove Student',
+      message: 'Are you sure you want to remove this student from the course?',
+      onConfirm: () => actual_handleRemoveStudent(studentId)
+    });
+  };
+  
+  const actual_handleRemoveStudent = async (studentId: string) => {
     if (!confirm('Are you sure you want to remove this student from this course?')) return;
     if (!session?.token) return;
 
@@ -640,10 +684,10 @@ export default function CourseDetailsPage() {
         forceRefresh();
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to remove student.');
+        toast.error(data.message || 'Failed to remove student.');
       }
     } catch (err) {
-      alert('Network error removing student.');
+      toast.error('Network error removing student.');
     }
   };
 
@@ -663,10 +707,10 @@ export default function CourseDetailsPage() {
         forceRefresh();
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to update request.');
+        toast.error(data.message || 'Failed to update request.');
       }
     } catch (err) {
-      alert('Network error resolving request.');
+      toast.error('Network error resolving request.');
     }
   };
 
@@ -678,7 +722,7 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (!lessonTitle) {
-      setLessonCreateError('Lesson Title is required.');
+      toast.error('Lesson Title is required.');
       return;
     }
 
@@ -705,9 +749,9 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setLessonCreateError(data.message || 'Failed to create lesson.');
+        toast.error(data.message || 'Failed to create lesson.');
       } else {
-        setLessonCreateSuccess('Lesson created successfully!');
+        toast.success('Lesson created successfully!');
         setLessonTitle('');
         setLessonDesc('');
         setLessonDuration(0);
@@ -719,13 +763,23 @@ export default function CourseDetailsPage() {
         }, 1500);
       }
     } catch (err) {
-      setLessonCreateError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setLessonCreateSubmitting(false);
     }
   };
 
-  const handleDeleteLesson = async (lessonId: string) => {
+  
+  const handleDeleteLesson = (lessonId: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Lesson',
+      message: 'Are you sure you want to delete this recorded lesson?',
+      onConfirm: () => actual_handleDeleteLesson(lessonId)
+    });
+  };
+  
+  const actual_handleDeleteLesson = async (lessonId: string) => {
     if (!confirm('Are you sure you want to delete this lesson?')) return;
     if (!session?.token) return;
 
@@ -738,10 +792,10 @@ export default function CourseDetailsPage() {
         forceRefresh();
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to delete lesson.');
+        toast.error(data.message || 'Failed to delete lesson.');
       }
     } catch (err) {
-      alert('Network error deleting lesson.');
+      toast.error('Network error deleting lesson.');
     }
   };
 
@@ -820,7 +874,7 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (!quizTitle) {
-      setQuizError('Quiz Title is required.');
+      toast.error('Quiz Title is required.');
       return;
     }
 
@@ -870,9 +924,9 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setQuizError(data.message || (editingQuizId ? 'Failed to update quiz.' : 'Failed to create quiz.'));
+        toast.error(data.message || (editingQuizId ? 'Failed to update quiz.' : 'Failed to create quiz.'));
       } else {
-        setQuizSuccess(editingQuizId ? 'Quiz updated successfully!' : 'Quiz created successfully!');
+        toast.success(editingQuizId ? 'Quiz updated successfully!' : 'Quiz created successfully!');
         setQuizTitle('');
         setQuizDesc('');
         setQuizTestType('Autograded');
@@ -888,13 +942,23 @@ export default function CourseDetailsPage() {
         }, 1500);
       }
     } catch (err) {
-      setQuizError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setQuizSubmitting(false);
     }
   };
 
-  const handleDeleteQuiz = async (quizParam: any) => {
+  
+  const handleDeleteQuiz = (quizParam: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Quiz',
+      message: 'Are you sure you want to delete this quiz and all its attempts?',
+      onConfirm: () => actual_handleDeleteQuiz(quizParam)
+    });
+  };
+  
+  const actual_handleDeleteQuiz = async (quizParam: any) => {
     const quizId = typeof quizParam === 'string' ? quizParam : (quizParam?._id || quizParam?.id);
     if (!quizId) return;
 
@@ -903,7 +967,7 @@ export default function CourseDetailsPage() {
 
     const token = session?.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : '');
     if (!token) {
-      alert('Session token unavailable. Please re-login.');
+      toast.error('Session token unavailable. Please re-login.');
       return;
     }
 
@@ -918,11 +982,11 @@ export default function CourseDetailsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.message || 'Failed to delete quiz.');
+        toast.error(data.message || 'Failed to delete quiz.');
       }
       forceRefresh(); // Force refresh to ensure sync
     } catch (err: any) {
-      alert(err?.message || 'Network error deleting quiz.');
+      toast.error(err?.message || 'Network error deleting quiz.');
       forceRefresh();
     }
   };
@@ -936,7 +1000,7 @@ export default function CourseDetailsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || 'Failed to start quiz attempt.');
+        toast.error(data.message || 'Failed to start quiz attempt.');
         return null;
       }
       
@@ -950,7 +1014,7 @@ export default function CourseDetailsPage() {
       }
       return { remaining, attemptAnswers: attempt.answers || [] };
     } catch (err) {
-      alert('Network error starting quiz.');
+      toast.error('Network error starting quiz.');
       return null;
     }
   };
@@ -976,16 +1040,16 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (res.ok) {
-        alert(data.message || 'Quiz submitted successfully!');
+        toast.error(data.message || 'Quiz submitted successfully!');
         setShowTakeQuizModal(false);
         setSelectedQuiz(null);
         setQuizAnswers([]);
         forceRefresh();
       } else {
-        alert(data.message || 'Failed to submit quiz attempt.');
+        toast.error(data.message || 'Failed to submit quiz attempt.');
       }
     } catch (err) {
-      alert('Network error submitting quiz.');
+      toast.error('Network error submitting quiz.');
     } finally {
       setQuizSubmitting(false);
     }
@@ -1002,10 +1066,10 @@ export default function CourseDetailsPage() {
       if (res.ok) {
         setQuizAttempts(await res.json());
       } else {
-        setQuizAttemptsError('Failed to load attempts.');
+        toast.error('Failed to load attempts.');
       }
     } catch (err) {
-      setQuizAttemptsError('Network error loading attempts.');
+      toast.error('Network error loading attempts.');
     } finally {
       setQuizAttemptsLoading(false);
     }
@@ -1030,16 +1094,16 @@ export default function CourseDetailsPage() {
       });
 
       if (res.ok) {
-        alert('Attempt graded successfully.');
+        toast.success('Attempt graded successfully.');
         setShowGradeAttemptModal(false);
         setSelectedAttempt(null);
         if (selectedQuiz) fetchQuizAttempts(selectedQuiz._id);
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to grade attempt.');
+        toast.error(data.message || 'Failed to grade attempt.');
       }
     } catch (err) {
-      alert('Network error grading attempt.');
+      toast.error('Network error grading attempt.');
     } finally {
       setGradeAttemptSubmitting(false);
     }
@@ -1053,7 +1117,7 @@ export default function CourseDetailsPage() {
     e.preventDefault();
     if (!session?.token) return;
     if (!assignmentTitle || !assignmentDesc || !assignmentDeadline) {
-      setAssignmentError('All required fields must be filled.');
+      toast.error('All required fields must be filled.');
       return;
     }
 
@@ -1080,9 +1144,9 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setAssignmentError(data.message || 'Failed to create assignment.');
+        toast.error(data.message || 'Failed to create assignment.');
       } else {
-        setAssignmentSuccess('Assignment created successfully!');
+        toast.success('Assignment created successfully!');
         setAssignmentTitle('');
         setAssignmentDesc('');
         setAssignmentDeadline('');
@@ -1095,13 +1159,23 @@ export default function CourseDetailsPage() {
         }, 1500);
       }
     } catch (err) {
-      setAssignmentError('Network error.');
+      toast.error('Network error.');
     } finally {
       setAssignmentSubmitting(false);
     }
   };
 
-  const handleDeleteAssignment = async (assignmentParam: any) => {
+  
+  const handleDeleteAssignment = (assignmentParam: any) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Assignment',
+      message: 'Are you sure you want to delete this assignment and all its submissions?',
+      onConfirm: () => actual_handleDeleteAssignment(assignmentParam)
+    });
+  };
+  
+  const actual_handleDeleteAssignment = async (assignmentParam: any) => {
     const assignmentId = typeof assignmentParam === 'string' ? assignmentParam : (assignmentParam?._id || assignmentParam?.id);
     if (!assignmentId) return;
 
@@ -1110,7 +1184,7 @@ export default function CourseDetailsPage() {
 
     const token = session?.token || (typeof window !== 'undefined' ? localStorage.getItem('token') : '');
     if (!token) {
-      alert('Session token unavailable. Please re-login.');
+      toast.error('Session token unavailable. Please re-login.');
       return;
     }
 
@@ -1125,11 +1199,11 @@ export default function CourseDetailsPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        alert(data.message || 'Failed to delete assignment.');
+        toast.error(data.message || 'Failed to delete assignment.');
       }
       forceRefresh(); // Force refresh to ensure sync
     } catch (err: any) {
-      alert(err?.message || 'Network error deleting assignment.');
+      toast.error(err?.message || 'Network error deleting assignment.');
       forceRefresh();
     }
   };
@@ -1137,7 +1211,7 @@ export default function CourseDetailsPage() {
   const handleSubmitAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.token || !selectedAssignment || !assignmentFile) {
-      alert('Please select a PDF file to upload.');
+      toast.error('Please select a PDF file to upload.');
       return;
     }
 
@@ -1156,16 +1230,16 @@ export default function CourseDetailsPage() {
 
       const data = await res.json();
       if (res.ok) {
-        alert('Assignment submitted successfully!');
+        toast.success('Assignment submitted successfully!');
         setShowSubmitAssignmentModal(false);
         setSelectedAssignment(null);
         setAssignmentFile(null);
         forceRefresh();
       } else {
-        alert(data.message || 'Failed to submit assignment.');
+        toast.error(data.message || 'Failed to submit assignment.');
       }
     } catch (err) {
-      alert('Network error uploading assignment.');
+      toast.error('Network error uploading assignment.');
     } finally {
       setAssignmentSubmittingFile(false);
     }
@@ -1204,16 +1278,16 @@ export default function CourseDetailsPage() {
       });
 
       if (res.ok) {
-        alert('Submission graded successfully.');
+        toast.success('Submission graded successfully.');
         setShowGradeSubmissionModal(false);
         setSelectedSubmission(null);
         if (selectedSubmissionsAssignment) fetchSubmissions(selectedSubmissionsAssignment._id);
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to grade submission.');
+        toast.error(data.message || 'Failed to grade submission.');
       }
     } catch (err) {
-      alert('Network error grading submission.');
+      toast.error('Network error grading submission.');
     } finally {
       setGradeSubmissionSubmitting(false);
     }
@@ -1476,6 +1550,16 @@ export default function CourseDetailsPage() {
             courseFaculty={courseFaculty}
             handleUnassignFaculty={handleUnassignFaculty}
           />
+        )}
+
+        {/* TASKS TAB (STUDENTS) */}
+        {activeTab === 'tasks' && (
+          <TasksTab studentCourseProgress={studentCourseProgress} />
+        )}
+
+        {/* GRADING TAB (FACULTY/ADMIN) */}
+        {activeTab === 'grading' && (
+          <GradingTab pendingGrading={pendingGrading} />
         )}
 
         {/* 4. PROGRESS / ANALYTICS TAB */}

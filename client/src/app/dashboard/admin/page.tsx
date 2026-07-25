@@ -1,4 +1,5 @@
 "use client";
+import { toast } from 'react-toastify';
 import React, { useEffect, useState } from "react";
 import { 
   Building, 
@@ -171,7 +172,7 @@ export default function AdminDashboard() {
         setIsCreateOpen(false);
         await fetchCourses(session.token);
       } else {
-        alert(data.message || "Failed to create course.");
+        toast.error(data.message || "Failed to create course.");
       }
     } catch (error) {
       console.error(error);
@@ -241,7 +242,7 @@ export default function AdminDashboard() {
     const requiresLiveLink = !isZoomActive || !autoGenerateZoom;
 
     if (!selectedCourse || !newSessionTitle || !newSessionStart || !newSessionEnd || (requiresLiveLink && !newSessionLiveLink) || !session?.token) {
-      setSessionError('Please fill in all mandatory fields.');
+      toast.error('Please fill in all mandatory fields.');
       return;
     }
 
@@ -289,11 +290,11 @@ export default function AdminDashboard() {
         await fetchCourseSessions(selectedCourse._id);
         await fetchCourseMaterials(selectedCourse._id);
       } else {
-        setSessionError(data.message || 'Failed to add session.');
+        toast.error(data.message || 'Failed to add session.');
       }
     } catch (error) {
       console.error(error);
-      setSessionError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setAddingSession(false);
     }
@@ -302,7 +303,7 @@ export default function AdminDashboard() {
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || !newMaterialFile || !session?.token) {
-      setMaterialError('Please select a PDF file.');
+      toast.error('Please select a PDF file.');
       return;
     }
 
@@ -331,14 +332,14 @@ export default function AdminDashboard() {
         const fileInput = document.getElementById('material-file') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
 
-        setMaterialSuccess('Material uploaded successfully!');
+        toast.success('Material uploaded successfully!');
         await fetchCourseMaterials(selectedCourse._id);
       } else {
-        setMaterialError(data.message || 'Failed to upload material.');
+        toast.error(data.message || 'Failed to upload material.');
       }
     } catch (error) {
       console.error(error);
-      setMaterialError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setAddingMaterial(false);
     }
@@ -347,7 +348,7 @@ export default function AdminDashboard() {
   const handleEnrollStudents = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || selectedStudentIds.length === 0 || !session?.token) {
-      setEnrollError('Please select at least one student.');
+      toast.error('Please select at least one student.');
       return;
     }
 
@@ -367,14 +368,14 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (res.ok) {
         setSelectedStudentIds([]);
-        setEnrollSuccess(data.message || 'Students enrolled successfully!');
+        toast.success(data.message || 'Students enrolled successfully!');
         await fetchCourseStudents(selectedCourse._id);
       } else {
-        setEnrollError(data.message || 'Failed to enroll students.');
+        toast.error(data.message || 'Failed to enroll students.');
       }
     } catch (error) {
       console.error(error);
-      setEnrollError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setEnrollingStudents(false);
     }
@@ -679,7 +680,7 @@ export default function AdminDashboard() {
                         setInstitute(data.institute);
                         setIsEditingSettings(false);
                       } else {
-                        alert("Failed to update settings");
+                        toast.error("Failed to update settings");
                       }
                     } catch (err) {
                       console.error(err);

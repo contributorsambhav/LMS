@@ -1,6 +1,7 @@
 'use client';
 
 import { Activity, AlertTriangle, BookOpen, Building, CheckCircle2, CreditCard, Database, Mail, Server, ShieldCheck } from 'lucide-react';
+import { toast } from 'react-toastify';
 import React, { useEffect, useState } from 'react';
 
 import { useSearchParams } from 'next/navigation';
@@ -103,16 +104,16 @@ export default function SuperAdminDashboard() {
       const data = await res.json();
       if (res.ok) {
         setFeedbackType('success');
-        setFeedbackMsg(data.message || 'Verification approved.');
+        toast(data.message || 'Verification approved.');
         await fetchInstitutes(token);
         await fetchVerifications(token);
       } else {
         setFeedbackType('error');
-        setFeedbackMsg(data.message || 'Failed to approve.');
+        toast(data.message || 'Failed to approve.');
       }
     } catch (e) {
       setFeedbackType('error');
-      setFeedbackMsg('Network error approving verification.');
+      toast('Network error approving verification.');
     } finally {
       setUpdatingId(null);
     }
@@ -130,16 +131,16 @@ export default function SuperAdminDashboard() {
       const data = await res.json();
       if (res.ok) {
         setFeedbackType('success');
-        setFeedbackMsg(data.message || 'Verification rejected.');
+        toast(data.message || 'Verification rejected.');
         await fetchVerifications(token);
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
-        setFeedbackMsg(data.message || 'Failed to reject.');
+        toast(data.message || 'Failed to reject.');
       }
     } catch (e) {
       setFeedbackType('error');
-      setFeedbackMsg('Network error rejecting verification.');
+      toast('Network error rejecting verification.');
     } finally {
       setUpdatingId(null);
     }
@@ -175,15 +176,15 @@ export default function SuperAdminDashboard() {
 
       if (res.ok) {
         setFeedbackType('success');
-        setFeedbackMsg(data.message || `Successfully marked institute as ${targetStatus}!`);
+        toast(data.message || `Successfully marked institute as ${targetStatus}!`);
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
-        setFeedbackMsg(data.message || 'Failed to update status.');
+        toast(data.message || 'Failed to update status.');
       }
     } catch (error) {
       setFeedbackType('error');
-      setFeedbackMsg('Network error updating status.');
+      toast('Network error updating status.');
     } finally {
       setUpdatingId(null);
     }
@@ -211,15 +212,15 @@ export default function SuperAdminDashboard() {
 
       if (res.ok) {
         setFeedbackType('success');
-        setFeedbackMsg(data.message || 'Successfully updated billing plan!');
+        toast(data.message || 'Successfully updated billing plan!');
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
-        setFeedbackMsg(data.message || 'Failed to update billing plan.');
+        toast(data.message || 'Failed to update billing plan.');
       }
     } catch (error) {
       setFeedbackType('error');
-      setFeedbackMsg('Network error updating billing.');
+      toast('Network error updating billing.');
     } finally {
       setUpdatingId(null);
     }
@@ -245,15 +246,15 @@ export default function SuperAdminDashboard() {
 
       if (res.ok) {
         setFeedbackType('success');
-        setFeedbackMsg(data.message || 'Tenant completely deleted.');
+        toast(data.message || 'Tenant completely deleted.');
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
-        setFeedbackMsg(data.message || 'Failed to delete tenant.');
+        toast(data.message || 'Failed to delete tenant.');
       }
     } catch (error) {
       setFeedbackType('error');
-      setFeedbackMsg('Network error deleting tenant.');
+      toast('Network error deleting tenant.');
     } finally {
       setUpdatingId(null);
     }
@@ -278,9 +279,9 @@ export default function SuperAdminDashboard() {
         if (plansRes.ok) setPlans(await plansRes.json());
         setEditingPlanId(null);
         setFeedbackType('success');
-        setFeedbackMsg('Plan pricing parameters updated successfully!');
+        toast('Plan pricing parameters updated successfully!');
       } else {
-        alert(data.message || 'Failed to update plan');
+        toast.error(data.message || 'Failed to update plan');
       }
     } catch (error) {
       console.error(error);
@@ -306,16 +307,16 @@ export default function SuperAdminDashboard() {
       const data = await res.json();
       if (res.ok) {
         setFeedbackType('success');
-        setFeedbackMsg(data.message || 'Student deleted.');
+        toast(data.message || 'Student deleted.');
         if (selectedStudent?.student?._id === studentId) setSelectedStudent(null);
         await fetchInstitutes(token);
       } else {
         setFeedbackType('error');
-        setFeedbackMsg(data.message || 'Failed to delete student.');
+        toast(data.message || 'Failed to delete student.');
       }
     } catch (error) {
       setFeedbackType('error');
-      setFeedbackMsg('Network error deleting student.');
+      toast('Network error deleting student.');
     } finally {
       setUpdatingId(null);
     }

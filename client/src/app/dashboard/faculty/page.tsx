@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, BookOpen, Building2, Calendar, CheckCircle2, Compass, PlayCircle, Plus, X, Video, ExternalLink, RefreshCw } from 'lucide-react';
+import { toast } from 'react-toastify';
 import React, { useEffect, useState } from 'react';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -115,7 +116,7 @@ export default function FacultyDashboard() {
   const handleUpdateInstitute = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.token || !selectedInstituteId) {
-      setAffiliationError('Please select an institute.');
+      toast.error('Please select an institute.');
       return;
     }
     setSubmittingAffiliation(true);
@@ -134,7 +135,7 @@ export default function FacultyDashboard() {
       if (res.ok) {
         setCurrentInstituteId(data.instituteId);
         setAffiliationStatus(data.affiliationStatus || 'Pending');
-        setAffiliationSuccess('Affiliation request submitted! Your request is pending approval from the Institute Admin.');
+        toast.success('Affiliation request submitted! Your request is pending approval from the Institute Admin.');
 
         // Update local session context and local storage
         const updatedUser = { 
@@ -159,10 +160,10 @@ export default function FacultyDashboard() {
           localStorage.setItem('auth', JSON.stringify(authData));
         }
       } else {
-        setAffiliationError(data.message || 'Failed to submit affiliation request.');
+        toast.error(data.message || 'Failed to submit affiliation request.');
       }
     } catch (err) {
-      setAffiliationError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
       setSubmittingAffiliation(false);
     }
@@ -346,7 +347,7 @@ export default function FacultyDashboard() {
   const handleJoinCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode || joinCode.trim().length !== 6) {
-      setJoinError('Please enter a valid 6-character code.');
+      toast.error('Please enter a valid 6-character code.');
       return;
     }
 
@@ -357,7 +358,7 @@ export default function FacultyDashboard() {
     try {
       const token = session?.token;
       if (!token) {
-        setJoinError('Not authenticated');
+        toast.error('Not authenticated');
         setJoining(false);
         return;
       }
@@ -374,14 +375,14 @@ export default function FacultyDashboard() {
       const data = await res.json();
 
       if (!res.ok) {
-        setJoinError(data.message || 'Failed to join course.');
+        toast.error(data.message || 'Failed to join course.');
       } else {
-        setJoinSuccess(data.message || 'Successfully joined course as Faculty!');
+        toast.success(data.message || 'Successfully joined course as Faculty!');
         setJoinCode('');
         await fetchCourses(token);
       }
     } catch (error) {
-      setJoinError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
       setJoining(false);
     }
@@ -412,7 +413,7 @@ export default function FacultyDashboard() {
         setIsCreateOpen(false);
         await fetchCourses(session.token);
       } else {
-        alert(data.message || 'Failed to create course.');
+        toast.error(data.message || 'Failed to create course.');
       }
     } catch (error) {
       console.error(error);
@@ -438,7 +439,7 @@ export default function FacultyDashboard() {
         await fetchCourses(session.token);
       } else {
         const data = await res.json();
-        alert(data.message || 'Failed to update enrollment status.');
+        toast.error(data.message || 'Failed to update enrollment status.');
       }
     } catch (error) {
       console.error(error);
@@ -505,11 +506,11 @@ export default function FacultyDashboard() {
   const handleAddSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || !newSessionTitle || !newSessionStart || !newSessionEnd || !session?.token) {
-      setSessionError('Please fill in all mandatory fields.');
+      toast.error('Please fill in all mandatory fields.');
       return;
     }
     if (!autoGenerateZoom && !newSessionLiveLink) {
-      setSessionError('Please provide a Live Link or enable Zoom auto-generation.');
+      toast.error('Please provide a Live Link or enable Zoom auto-generation.');
       return;
     }
 
@@ -558,11 +559,11 @@ export default function FacultyDashboard() {
         await fetchCourseSessions(selectedCourse._id);
         await fetchCourseMaterials(selectedCourse._id);
       } else {
-        setSessionError(data.message || 'Failed to add session.');
+        toast.error(data.message || 'Failed to add session.');
       }
     } catch (error) {
       console.error(error);
-      setSessionError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setAddingSession(false);
     }
@@ -571,7 +572,7 @@ export default function FacultyDashboard() {
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || !newMaterialFile || !session?.token) {
-      setMaterialError('Please select a PDF file.');
+      toast.error('Please select a PDF file.');
       return;
     }
 
@@ -600,14 +601,14 @@ export default function FacultyDashboard() {
         const fileInput = document.getElementById('material-file') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
 
-        setMaterialSuccess('Material uploaded successfully!');
+        toast.success('Material uploaded successfully!');
         await fetchCourseMaterials(selectedCourse._id);
       } else {
-        setMaterialError(data.message || 'Failed to upload material.');
+        toast.error(data.message || 'Failed to upload material.');
       }
     } catch (error) {
       console.error(error);
-      setMaterialError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setAddingMaterial(false);
     }
@@ -616,7 +617,7 @@ export default function FacultyDashboard() {
   const handleEnrollStudents = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || selectedStudentIds.length === 0 || !session?.token) {
-      setEnrollError('Please select at least one student.');
+      toast.error('Please select at least one student.');
       return;
     }
 
@@ -636,14 +637,14 @@ export default function FacultyDashboard() {
       const data = await res.json();
       if (res.ok) {
         setSelectedStudentIds([]);
-        setEnrollSuccess(data.message || 'Students enrolled successfully!');
+        toast.success(data.message || 'Students enrolled successfully!');
         await fetchCourseStudents(selectedCourse._id);
       } else {
-        setEnrollError(data.message || 'Failed to enroll students.');
+        toast.error(data.message || 'Failed to enroll students.');
       }
     } catch (error) {
       console.error(error);
-      setEnrollError('Network error occurred.');
+      toast.error('Network error occurred.');
     } finally {
       setEnrollingStudents(false);
     }

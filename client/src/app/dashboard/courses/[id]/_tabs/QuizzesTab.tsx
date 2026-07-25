@@ -1,3 +1,4 @@
+import { toast } from 'react-toastify';
 import React from 'react';
 import { Plus, FileQuestion, Clock, FileText, Trash2, CheckCircle2, ShieldAlert } from 'lucide-react';
 
@@ -379,7 +380,7 @@ export default function QuizzesTab(props: QuizzesTabProps) {
                                     setQuizAnswers(initialAnswers);
                                     
                                     if (startData.remaining === 0) {
-                                      alert("Your time for this attempt has already expired!");
+                                      toast.error("Your time for this attempt has already expired!");
                                       handleSubmitQuizAttempt(undefined, selectedQuiz._id, initialAnswers);
                                       return;
                                     }

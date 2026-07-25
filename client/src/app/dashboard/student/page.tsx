@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, Award, BookOpen, Calendar, CheckCircle2, ChevronRight, Clock, Compass, FileText, Mail, PlayCircle, Plus, School, User, X, Video, ExternalLink } from 'lucide-react';
+import { toast } from 'react-toastify';
 import React, { useEffect, useState } from 'react';
 
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -165,7 +166,7 @@ export default function StudentDashboard() {
   const handleJoinCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode || joinCode.trim().length < 3) {
-      setJoinError('Please enter a valid course code or join code.');
+      toast.error('Please enter a valid course code or join code.');
       return;
     }
 
@@ -176,7 +177,7 @@ export default function StudentDashboard() {
     try {
       const token = session?.token;
       if (!token) {
-        setJoinError('Not authenticated');
+        toast.error('Not authenticated');
         setJoining(false);
         return;
       }
@@ -193,14 +194,14 @@ export default function StudentDashboard() {
       const data = await res.json();
 
       if (!res.ok) {
-        setJoinError(data.message || 'Failed to join course.');
+        toast.error(data.message || 'Failed to join course.');
       } else {
-        setJoinSuccess(data.message || 'Enrollment request submitted! Waiting for teacher approval.');
+        toast.success(data.message || 'Enrollment request submitted! Waiting for teacher approval.');
         setJoinCode('');
         await fetchEnrollments(token);
       }
     } catch (error) {
-      setJoinError('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
       setJoining(false);
     }
@@ -246,7 +247,7 @@ export default function StudentDashboard() {
 
         window.location.reload();
       } else {
-        alert("Failed to update institute affiliation.");
+        toast.error("Failed to update institute affiliation.");
       }
     } catch (e) {
       console.error(e);
@@ -287,7 +288,7 @@ export default function StudentDashboard() {
         
         window.location.reload();
       } else {
-        alert("Failed to update profile.");
+        toast.error("Failed to update profile.");
       }
     } catch (error) {
       console.error(error);
