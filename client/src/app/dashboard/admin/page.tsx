@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [courses, setCourses] = useState<any[]>([]);
   const [institute, setInstitute] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [roster, setRoster] = useState<{faculties: any[], students: any[]}>({ faculties: [], students: [] });
   const [loading, setLoading] = useState(true);
@@ -131,12 +132,32 @@ export default function AdminDashboard() {
       if (rosterRes.ok) {
         setRoster(await rosterRes.json());
       }
+      
+      const transRes = await fetch(`${API_BASE_URL}/api/admin/transactions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (transRes.ok) {
+        setTransactions(await transRes.json());
+      }
     } catch (error) {
       console.error("Failed to fetch admin data:", error);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const token = session?.token;
@@ -416,7 +437,7 @@ export default function AdminDashboard() {
           { id: 'overview', label: 'Overview' },
           { id: 'approvals', label: `Approvals (${pendingUsers.length})` },
           { id: 'rosters', label: 'Rosters' },
-          { id: 'departments', label: 'Departments' },
+          { id: 'courses', label: 'Courses' },
           { id: 'billing', label: 'Billing' },
           { id: 'settings', label: 'Settings' }
         ].map((tab) => (
@@ -560,26 +581,197 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {activeTab === 'departments' && (
-        <div className="space-y-6">
-          <div className="bg-card border border-border rounded-lg p-8 text-center text-xs text-muted-foreground">
-            No departmental records found. Integrate your real department records from the API.
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'billing' && (
+      {activeTab === 'billing' && (() => {
+        const planPriceStr = plans.find(p => p.planCode === institute?.billingPlan)?.price || '0';
+        const numMatch = planPriceStr.match(/\d+/g);
+        const planPrice = numMatch ? parseInt(numMatch.join(''), 10) : 0;
+        const dailyRate = planPrice / 28;
+        const daysLeft = dailyRate > 0 && institute?.walletBalance > 0 ? Math.floor(institute.walletBalance / dailyRate) : 0;
+        
+        return (
         <div className="bg-card border border-border rounded-lg p-6 space-y-6">
           <div className="flex items-center justify-between pb-2 border-b border-border">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Billing</h3>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Managed by Platform</span>
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Prepaid Wallet Billing</h3>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Daily Burn Model</span>
           </div>
 
-          <div className="bg-secondary/10 border border-border rounded-md p-8 text-center text-xs text-muted-foreground">
-            Billing and invoice history will appear here when connected to backend billing data.
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-secondary/10 border border-border rounded-lg p-6">
+              <h4 className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Wallet Balance</h4>
+              <p className={`text-3xl font-bold ${institute?.walletBalance < 0 ? 'text-destructive' : 'text-foreground'}`}>₹{institute?.walletBalance?.toFixed(2) || '0.00'}</p>
+              {institute?.walletBalance < 0 && (
+                <p className="text-xs text-destructive mt-2 font-medium">Negative balance! Account suspends in {7 - (institute?.negativeDaysCount || 0)} days.</p>
+              )}
+            </div>
+
+            <div className="bg-secondary/10 border border-border rounded-lg p-6 flex flex-col justify-between">
+              <div>
+                <h4 className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Daily Burn Rate</h4>
+                <p className="text-3xl font-bold text-foreground">₹{dailyRate.toFixed(2)}</p>
+              </div>
+              <div className="mt-4">
+                <label className="text-[10px] text-muted-foreground font-medium uppercase mb-1.5 block">Change Plan</label>
+                <select 
+                  value={institute?.billingPlan || 'Basic'} 
+                  onChange={async (e) => {
+                    const newPlan = e.target.value;
+                    toast.info("Updating plan...");
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/admin/institute`, {
+                        method: "PATCH",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${session?.token}`
+                        },
+                        body: JSON.stringify({ billingPlan: newPlan })
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setInstitute(data.institute);
+                        toast.success("Plan updated! New daily rate applies at midnight.");
+                      } else {
+                        toast.error("Failed to update plan");
+                      }
+                    } catch (error) {
+                      toast.error("Network error");
+                    }
+                  }}
+                  className="w-full bg-card border border-input rounded-md px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer"
+                >
+                  {plans.map(p => (
+                    <option key={p.planCode} value={p.planCode}>{p.name} ({p.price})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="bg-secondary/10 border border-border rounded-lg p-6">
+              <h4 className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Estimated Days Left</h4>
+              <p className={`text-3xl font-bold ${daysLeft <= 3 ? 'text-amber-500' : 'text-emerald-500'}`}>{daysLeft}</p>
+              <p className="text-[11px] text-muted-foreground mt-2 leading-tight">After {daysLeft} days, charges double to ₹{(dailyRate * 2).toFixed(2)}/day as a late penalty.</p>
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="border-t border-border pt-6 mt-6">
+            <h4 className="text-sm font-semibold mb-3">Recharge Wallet (1 Month Minimum)</h4>
+            <div className="flex gap-4 items-center">
+              <div className="rounded-md border border-border bg-secondary/50 px-4 py-2 text-sm font-medium text-foreground w-48 text-center cursor-not-allowed">
+                ₹{planPrice}
+              </div>
+              <button 
+                onClick={async () => {
+                   if(planPrice <= 0) return toast.error('Invalid plan price for recharge');
+                   
+                   try {
+                     const orderRes = await fetch(`${API_BASE_URL}/api/auth/create-order`, {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ amount: planPrice })
+                     });
+                     
+                     if (!orderRes.ok) {
+                         return toast.error("Failed to initialize payment.");
+                     }
+                     
+                     const order = await orderRes.json();
+                     
+                     const options = {
+                         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                         amount: order.amount,
+                         currency: order.currency,
+                         name: "LumenLMS Wallet Recharge",
+                         description: `Adding ₹${planPrice} to Wallet`,
+                         order_id: order.id,
+                         handler: async function (response: any) {
+                             toast.info("Verifying payment...");
+                             try {
+                               const verifyRes = await fetch(`${API_BASE_URL}/api/admin/verify-recharge`, {
+                                   method: 'POST',
+                                   headers: { 
+                                     'Content-Type': 'application/json',
+                                     Authorization: `Bearer ${session?.token}`
+                                   },
+                                   body: JSON.stringify({
+                                       razorpay_payment_id: response.razorpay_payment_id,
+                                       razorpay_order_id: response.razorpay_order_id,
+                                       razorpay_signature: response.razorpay_signature,
+                                       amount: planPrice
+                                   })
+                               });
+                               if (verifyRes.ok) {
+                                   const verifyData = await verifyRes.json();
+                                   setInstitute(verifyData.institute);
+                                   toast.success(`Successfully added ₹${planPrice} to wallet!`);
+                               } else {
+                                   toast.error("Payment verification failed.");
+                               }
+                             } catch(e) {
+                               toast.error("Error verifying payment.");
+                             }
+                         },
+                         prefill: {
+                             name: institute?.legalName,
+                             contact: institute?.phoneNumber
+                         },
+                         theme: {
+                             color: "#3399cc"
+                         }
+                     };
+                     
+                     const rzp1 = new (window as any).Razorpay(options);
+                     rzp1.open();
+                   } catch (e) {
+                     toast.error("Payment service is currently unavailable.");
+                   }
+                 }}
+                 className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer"
+               >
+                 Add ₹{planPrice} to Wallet
+               </button>
+             </div>
+           </div>
+
+           {/* Transaction History Table */}
+           <div className="border-t border-border pt-6 mt-6">
+             <h4 className="text-sm font-semibold mb-4">Transaction History</h4>
+             {transactions.length === 0 ? (
+               <div className="text-center py-6 text-xs text-muted-foreground bg-secondary/10 rounded-md border border-border">
+                 No transactions found.
+               </div>
+             ) : (
+               <div className="overflow-x-auto rounded-md border border-border">
+                 <table className="w-full text-left text-[11px]">
+                   <thead className="bg-secondary/20 text-muted-foreground border-b border-border">
+                     <tr>
+                       <th className="px-4 py-3 font-medium">Date</th>
+                       <th className="px-4 py-3 font-medium">Type</th>
+                       <th className="px-4 py-3 font-medium">Description</th>
+                       <th className="px-4 py-3 font-medium text-right">Amount</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-border">
+                     {transactions.map((tx: any) => (
+                       <tr key={tx._id} className="hover:bg-secondary/5 transition-colors">
+                         <td className="px-4 py-3 whitespace-nowrap">{new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                         <td className="px-4 py-3">
+                           <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${tx.type === 'Recharge' ? 'bg-emerald-500/10 text-emerald-500' : tx.type === 'Penalty' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
+                             {tx.type}
+                           </span>
+                         </td>
+                         <td className="px-4 py-3 text-muted-foreground">{tx.description}</td>
+                         <td className={`px-4 py-3 whitespace-nowrap text-right font-medium ${tx.amount > 0 ? 'text-emerald-500' : 'text-foreground'}`}>
+                           {tx.amount > 0 ? '+' : ''}₹{Math.abs(tx.amount).toFixed(2)}
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
+             )}
+           </div>
+         </div>
+         );
+       })()}
 
       {activeTab === 'approvals' && (
         <div className="space-y-6">

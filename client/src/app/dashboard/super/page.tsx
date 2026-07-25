@@ -15,6 +15,7 @@ export default function SuperAdminDashboard() {
   const [verifications, setVerifications] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -76,6 +77,13 @@ export default function SuperAdminDashboard() {
       });
       if (studentsRes.ok) {
         setStudents(await studentsRes.json());
+      }
+      
+      const transRes = await fetch(`${API_BASE_URL}/api/super/transactions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (transRes.ok) {
+        setTransactions(await transRes.json());
       }
     } catch (e) {
       console.error('Failed to fetch verifications:', e);
@@ -688,59 +696,139 @@ export default function SuperAdminDashboard() {
 
       {/* Subscription Plans Configuration */}
       {activeTab === 'billing' && (
-        <div className="space-y-6">
-          {plans.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">Loading live plans from database...</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              {plans.map((plan: any) => (
-                <div key={plan._id} className="bg-card border border-border rounded-lg p-6 flex flex-col justify-between">
-                  {editingPlanId === plan._id ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between pb-2 border-b border-border">
-                        <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">{plan.name}</h4>
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-medium text-muted-foreground uppercase">Price</label>
-                        <input type="text" value={planForm.price || ''} onChange={e => setPlanForm({...planForm, price: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-medium text-muted-foreground uppercase">API Limit</label>
-                        <input type="text" value={planForm.apiLimit || ''} onChange={e => setPlanForm({...planForm, apiLimit: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-medium text-muted-foreground uppercase">Details</label>
-                        <textarea value={planForm.details || ''} onChange={e => setPlanForm({...planForm, details: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1 resize-none" rows={2} />
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <button onClick={handleUpdatePlan} className="w-full rounded bg-primary hover:bg-primary/90 py-1.5 text-xs font-medium text-primary-foreground transition-colors cursor-pointer">Save</button>
-                        <button onClick={() => setEditingPlanId(null)} className="w-full rounded border border-border hover:bg-secondary py-1.5 text-xs font-medium text-foreground transition-colors cursor-pointer">Cancel</button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
+        <div className="space-y-8">
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Pricing Plans (Monthly Rates)</h3>
+            {plans.length === 0 ? (
+              <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">Loading live plans from database...</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                {plans.map((plan: any) => (
+                  <div key={plan._id} className="bg-card border border-border rounded-lg p-6 flex flex-col justify-between">
+                    {editingPlanId === plan._id ? (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{plan.name}</h4>
-                          <CreditCard className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex items-center justify-between pb-2 border-b border-border">
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">{plan.name}</h4>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground uppercase">Price</label>
+                          <input type="text" value={planForm.price || ''} onChange={e => setPlanForm({...planForm, price: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground uppercase">API Limit</label>
+                          <input type="text" value={planForm.apiLimit || ''} onChange={e => setPlanForm({...planForm, apiLimit: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground uppercase">Details</label>
+                          <textarea value={planForm.details || ''} onChange={e => setPlanForm({...planForm, details: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1 resize-none" rows={2} />
+                        </div>
+                        <div className="flex gap-2 mt-4">
+                          <button onClick={handleUpdatePlan} className="w-full rounded bg-primary hover:bg-primary/90 py-1.5 text-xs font-medium text-primary-foreground transition-colors cursor-pointer">Save</button>
+                          <button onClick={() => setEditingPlanId(null)} className="w-full rounded border border-border hover:bg-secondary py-1.5 text-xs font-medium text-foreground transition-colors cursor-pointer">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{plan.name}</h4>
+                            <CreditCard className="h-4 w-4 text-muted-foreground" />
+                          </div>
+
+                          <p className="text-2xl font-semibold text-foreground">{plan.price}</p>
+                          <p className="text-xs text-muted-foreground">
+                            API limits configuration: <strong className="text-foreground font-medium">{plan.apiLimit}</strong>
+                          </p>
+
+                          <div className="h-px bg-border my-4" />
+                          <p className="text-xs text-muted-foreground">{plan.details}</p>
                         </div>
 
-                        <p className="text-2xl font-semibold text-foreground">{plan.price}</p>
-                        <p className="text-xs text-muted-foreground">
-                          API limits configuration: <strong className="text-foreground font-medium">{plan.apiLimit}</strong>
-                        </p>
-
-                        <div className="h-px bg-border my-4" />
-                        <p className="text-xs text-muted-foreground">{plan.details}</p>
-                      </div>
-
-                      <button onClick={() => { setEditingPlanId(plan._id); setPlanForm({ price: plan.price, apiLimit: plan.apiLimit, details: plan.details }); }} className="w-full mt-6 rounded-md border border-border hover:bg-secondary bg-card py-2 text-xs font-medium text-foreground transition-colors cursor-pointer">Modify Pricing Parameters</button>
-                    </>
-                  )}
-                </div>
-              ))}
+                        <button onClick={() => { setEditingPlanId(plan._id); setPlanForm({ price: plan.price, apiLimit: plan.apiLimit, details: plan.details }); }} className="w-full mt-6 rounded-md border border-border hover:bg-secondary bg-card py-2 text-xs font-medium text-foreground transition-colors cursor-pointer">Modify Pricing Parameters</button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Tenant Wallets & Health</h3>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-secondary/20 text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Tenant</th>
+                    <th className="px-4 py-3 font-medium">Current Plan</th>
+                    <th className="px-4 py-3 font-medium">Daily Burn</th>
+                    <th className="px-4 py-3 font-medium">Wallet Balance</th>
+                    <th className="px-4 py-3 font-medium">Estimated Days Left</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {institutes.filter((inst: any) => inst.status === "Active").map((inst: any) => {
+                     const planPriceStr = plans.find(p => p.planCode === inst.billingPlan)?.price || '0';
+                     const numMatch = planPriceStr.match(/\d+/g);
+                     const planPrice = numMatch ? parseInt(numMatch.join(''), 10) : 0;
+                     const dailyRate = planPrice / 28;
+                     const daysLeft = dailyRate > 0 && inst.walletBalance > 0 ? Math.floor(inst.walletBalance / dailyRate) : 0;
+                     
+                     return (
+                       <tr key={inst.id} className="hover:bg-secondary/5 transition-colors">
+                         <td className="px-4 py-3 font-semibold text-foreground">{inst.name}</td>
+                         <td className="px-4 py-3">{inst.billingPlan}</td>
+                         <td className="px-4 py-3">₹{dailyRate.toFixed(2)}</td>
+                         <td className={`px-4 py-3 font-bold ${inst.walletBalance < 0 ? 'text-destructive' : 'text-emerald-500'}`}>
+                           ₹{(inst.walletBalance || 0).toFixed(2)}
+                         </td>
+                         <td className={`px-4 py-3 font-semibold ${daysLeft <= 3 ? 'text-amber-500' : 'text-foreground'}`}>
+                           {inst.walletBalance < 0 ? `Suspends in ${7 - (inst.negativeDaysCount || 0)} days` : `${daysLeft} days`}
+                         </td>
+                       </tr>
+                     );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+          
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Global Wallet Recharges</h3>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-secondary/20 text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Date</th>
+                    <th className="px-4 py-3 font-medium">Tenant</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">Description</th>
+                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {transactions.filter((tx: any) => tx.type === 'Recharge').map((tx: any) => (
+                    <tr key={tx._id} className="hover:bg-secondary/5 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">{new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="px-4 py-3 font-medium text-foreground">{tx.instituteId?.name || 'Unknown'}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-500">
+                          {tx.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{tx.description}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-emerald-500">
+                        +₹{Math.abs(tx.amount).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                  {transactions.filter((tx: any) => tx.type === 'Recharge').length === 0 && (
+                     <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No recharge transactions found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

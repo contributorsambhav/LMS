@@ -5,6 +5,8 @@ import { User } from '../models/User';
 import { Verification } from '../models/Verification';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -147,6 +149,33 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+export const createOrder = async (req: Request, res: Response) => {
+  try {
+    const { amount } = req.body;
+    
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: 'Razorpay keys not configured' });
+    }
+
+    const instance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+
+    const options = {
+      amount: amount * 100, // amount in smallest currency unit
+      currency: "INR",
+      receipt: "receipt_order_" + Date.now(),
+    };
+
+    const order = await instance.orders.create(options);
+    return res.status(200).json(order);
+  } catch (error: any) {
+    console.error("Create order error:", error);
+    return res.status(500).json({ message: "Failed to create order", error: error.message });
+  }
+};
+
 export const oauthLogin = async (req: Request, res: Response) => {
   try {
     const { name, email, role, picture, registrationDetails, action } = req.body;
@@ -196,6 +225,25 @@ export const oauthLogin = async (req: Request, res: Response) => {
 
       if (role === 'InstituteAdmin') {
         const details = registrationDetails || {};
+        
+        if (action === 'signup') {
+          const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = details;
+          
+          if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+             return res.status(400).json({ message: 'Payment details missing for Institute Admin registration.' });
+          }
+          
+          const body = razorpay_order_id + "|" + razorpay_payment_id;
+          const expectedSignature = crypto
+              .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+              .update(body.toString())
+              .digest("hex");
+              
+          if (expectedSignature !== razorpay_signature) {
+             return res.status(400).json({ message: 'Invalid payment signature.' });
+          }
+        }
+
         const legalName = details.legalName || `${name}'s Legal Entity`;
         const brandName = details.brandName || `${name}'s Institute`;
         const phoneNumber = details.phoneNumber || "000-000-0000";
@@ -206,7 +254,7 @@ export const oauthLogin = async (req: Request, res: Response) => {
           email,
           password: dummyPassword,
           role: 'InstituteAdmin',
-          status: 'Pending',
+          status: 'Approved',
           instituteId: null
         });
         await user.save();
@@ -219,21 +267,13 @@ export const oauthLogin = async (req: Request, res: Response) => {
           address,
           email,
           adminId: user._id,
-          status: 'Pending',
+          status: 'Active',
           billingPlan: details.billingPlan || 'Basic'
         });
         await institute.save();
 
         user.instituteId = institute._id as any;
         await user.save();
-
-        // Create a verification request for Super Admin approval
-        const verification = new Verification({
-          instituteId: institute._id,
-          adminId: user._id,
-          status: 'Pending'
-        });
-        await verification.save();
       } else {
         // For Faculty and Student, they start Pending
         const details = registrationDetails || {};

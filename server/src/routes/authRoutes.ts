@@ -9,7 +9,8 @@ import {
   updateProfile,
   getPendingFacultyAffiliations,
   updateFacultyAffiliation,
-  getMe
+  getMe,
+  createOrder
 } from "../controllers/authController";
 import { authenticate } from "../middleware/auth";
 
@@ -18,6 +19,7 @@ const router = Router();
 router.post("/register", register);
 router.post("/login", login);
 router.post("/oauth-login", oauthLogin);
+router.post("/create-order", createOrder);
 router.post("/super-login", superCodeLogin);
 router.get("/active-institutes", getActiveInstitutes);
 router.put("/update-institute", authenticate, updateInstitute);

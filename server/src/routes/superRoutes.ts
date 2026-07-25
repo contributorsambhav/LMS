@@ -13,7 +13,8 @@ import {
   updatePlan,
   getStudents,
   getStudentDetails,
-  deleteUser
+  deleteUser,
+  getGlobalTransactions
 } from "../controllers/superController";
 
 import { Router } from "express";
@@ -31,6 +32,7 @@ router.delete("/institutes/:id", deleteInstitute);
 
 router.get("/plans", getPlans);
 router.patch("/plans/:id", updatePlan);
+router.get("/transactions", getGlobalTransactions);
 
 // Student Management
 router.get("/students", getStudents);

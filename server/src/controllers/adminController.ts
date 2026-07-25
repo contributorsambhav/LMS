@@ -5,6 +5,8 @@ import { Subject } from "../models/Subject";
 import { User } from "../models/User";
 import { Enrollment } from "../models/Enrollment";
 import { Institute } from "../models/Institute";
+import { Transaction } from "../models/Transaction";
+import crypto from "crypto";
 
 // Helper to generate unique 6-character alphanumeric codes
 const generateUniqueCode = async (): Promise<string> => {
@@ -419,5 +421,65 @@ export const updateInstituteProfile = async (req: AuthenticatedRequest, res: Res
   } catch (error) {
     console.error("Error updating institute profile:", error);
     res.status(500).json({ message: "Failed to update institute profile", error });
+  }
+};
+
+export const verifyRecharge = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const instituteId = req.user?.instituteId;
+    if (!instituteId) {
+      return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
+    }
+
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, amount } = req.body;
+    
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !amount) {
+       return res.status(400).json({ message: 'Payment details or amount missing.' });
+    }
+    
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+        .update(body.toString())
+        .digest("hex");
+        
+    if (expectedSignature !== razorpay_signature) {
+       return res.status(400).json({ message: 'Invalid payment signature.' });
+    }
+
+    const institute = await Institute.findById(instituteId);
+    if (!institute) {
+      return res.status(404).json({ message: "Institute not found." });
+    }
+
+    institute.walletBalance += Number(amount);
+    await institute.save();
+    
+    await Transaction.create({
+      instituteId: institute._id,
+      amount: Number(amount),
+      type: "Recharge",
+      description: `Wallet recharge via Razorpay (Order: ${razorpay_order_id})`
+    });
+
+    res.status(200).json({ message: "Wallet recharged successfully", institute });
+  } catch (error) {
+    console.error("Error verifying recharge:", error);
+    res.status(500).json({ message: "Failed to verify recharge", error });
+  }
+};
+
+export const getTransactions = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const instituteId = req.user?.instituteId;
+    if (!instituteId) {
+      return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
+    }
+
+    const transactions = await Transaction.find({ instituteId }).sort({ createdAt: -1 }).limit(100);
+    res.status(200).json(transactions);
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    res.status(500).json({ message: "Failed to fetch transactions", error });
   }
 };

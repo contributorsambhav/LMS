@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
   const address = searchParams.get("address");
   const instituteId = searchParams.get("instituteId");
   const billingPlan = searchParams.get("billingPlan");
+  const razorpay_payment_id = searchParams.get("razorpay_payment_id");
+  const razorpay_order_id = searchParams.get("razorpay_order_id");
+  const razorpay_signature = searchParams.get("razorpay_signature");
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -30,6 +33,9 @@ export async function GET(req: NextRequest) {
   if (address) stateObj.address = address;
   if (instituteId) stateObj.instituteId = instituteId;
   if (billingPlan) stateObj.billingPlan = billingPlan;
+  if (razorpay_payment_id) stateObj.razorpay_payment_id = razorpay_payment_id;
+  if (razorpay_order_id) stateObj.razorpay_order_id = razorpay_order_id;
+  if (razorpay_signature) stateObj.razorpay_signature = razorpay_signature;
 
   const base64State = Buffer.from(JSON.stringify(stateObj)).toString("base64");
 

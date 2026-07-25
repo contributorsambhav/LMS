@@ -25,6 +25,19 @@ function SignupFormContent() {
   const [billingPlan, setBillingPlan] = useState<'Basic' | 'Premium' | 'Enterprise' | 'Custom'>('Basic');
 
   useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (searchParams.get('role')) {
       setSelectedRole(searchParams.get('role') as any);
     }
@@ -49,7 +62,7 @@ function SignupFormContent() {
     }
   }, [selectedRole]);
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     setLoading(true);
     setValidationError('');
     let query = `role=${selectedRole}`;
@@ -60,7 +73,63 @@ function SignupFormContent() {
         setLoading(false);
         return;
       }
-      query += `&legalName=${encodeURIComponent(legalName.trim())}&brandName=${encodeURIComponent(brandName.trim())}&phoneNumber=${encodeURIComponent(phoneNumber.trim())}&address=${encodeURIComponent(address.trim())}&billingPlan=${encodeURIComponent(billingPlan)}`;
+      
+      // Determine amount from plan
+      let amount = 299;
+      if (billingPlan === 'Premium') amount = 599;
+      if (billingPlan === 'Enterprise') amount = 1450;
+      if (billingPlan === 'Custom') amount = 2000;
+      
+      // Create Razorpay Order
+      try {
+          const res = await fetch(`${API_BASE_URL}/api/auth/create-order`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ amount })
+          });
+          
+          if (!res.ok) {
+              setValidationError("Failed to initialize payment. Please try again.");
+              setLoading(false);
+              return;
+          }
+          
+          const order = await res.json();
+          
+          const options = {
+              key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+              amount: order.amount,
+              currency: order.currency,
+              name: "LumenLMS Institute Registration",
+              description: `Payment for ${billingPlan} Plan`,
+              order_id: order.id,
+              handler: function (response: any) {
+                  query += `&legalName=${encodeURIComponent(legalName.trim())}&brandName=${encodeURIComponent(brandName.trim())}&phoneNumber=${encodeURIComponent(phoneNumber.trim())}&address=${encodeURIComponent(address.trim())}&billingPlan=${encodeURIComponent(billingPlan)}`;
+                  query += `&razorpay_payment_id=${response.razorpay_payment_id}&razorpay_order_id=${response.razorpay_order_id}&razorpay_signature=${response.razorpay_signature}`;
+                  router.push(`/api/auth/google?${query}&action=signup`);
+              },
+              prefill: {
+                  name: legalName,
+                  contact: phoneNumber
+              },
+              theme: {
+                  color: "#3399cc"
+              },
+              modal: {
+                  ondismiss: function() {
+                      setLoading(false);
+                  }
+              }
+          };
+          
+          const rzp1 = new (window as any).Razorpay(options);
+          rzp1.open();
+          return; // Wait for Razorpay modal to handle redirect
+      } catch (e) {
+          setValidationError("Payment service is currently unavailable.");
+          setLoading(false);
+          return;
+      }
     } else {
       if (!instituteId) {
         setValidationError("Please select an approved institute.");
@@ -77,6 +146,7 @@ function SignupFormContent() {
 
     router.push(`/api/auth/google?${query}&action=signup`);
   };
+
 
   return (
     <div className="w-full max-w-md">
@@ -219,14 +289,10 @@ function SignupFormContent() {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground">Select Billing Plan</label>
-                  <select
-                    value={billingPlan}
-                    onChange={(e) => setBillingPlan(e.target.value as any)}
-                    className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary outline-none"
-                  >
-                    <option value="Basic">Basic Plan ($299/mo)</option>
-                    <option value="Premium">Premium Plan ($599/mo)</option>
-                    <option value="Enterprise">Enterprise Plan ($1,450/mo)</option>
+                  <select id="billingPlan" value={billingPlan} onChange={(e: any) => setBillingPlan(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary h-10">
+                    <option value="Basic">Basic Plan (₹299/mo)</option>
+                    <option value="Premium">Premium Plan (₹599/mo)</option>
+                    <option value="Enterprise">Enterprise Plan (₹1,450/mo)</option>
                     <option value="Custom">Custom Plan (Contact Sales)</option>
                   </select>
                 </div>

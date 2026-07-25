@@ -96,6 +96,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           { label: 'Courses', href: '/dashboard/admin?tab=courses', icon: 'BookOpen' },
           { label: 'People', href: '/dashboard/admin?tab=rosters', icon: 'Users' },
           { label: 'Approvals', href: '/dashboard/admin?tab=approvals', icon: 'CheckSquare' },
+          { label: 'Billing', href: '/dashboard/admin?tab=billing', icon: 'CreditCard' },
           { label: 'Settings', href: '/dashboard/admin?tab=settings', icon: 'Settings' }
         ];
       case 'super':

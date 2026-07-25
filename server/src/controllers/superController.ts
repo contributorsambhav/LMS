@@ -6,6 +6,7 @@ import { Institute } from "../models/Institute";
 import { User } from "../models/User";
 import { Verification } from "../models/Verification";
 import { Plan } from "../models/Plan";
+import { Transaction } from "../models/Transaction";
 import mongoose from "mongoose";
 
 export const getInstitutes = async (req: AuthenticatedRequest, res: Response) => {
@@ -33,6 +34,8 @@ export const getInstitutes = async (req: AuthenticatedRequest, res: Response) =>
           address: inst.address,
           status: inst.status || "Pending",
           billingPlan: inst.billingPlan || "Basic",
+          walletBalance: inst.walletBalance,
+          negativeDaysCount: inst.negativeDaysCount,
           createdAt: inst.createdAt,
           admin: inst.adminId,
           usage: {
@@ -315,5 +318,15 @@ export const getStudentDetails = async (req: AuthenticatedRequest, res: Response
   } catch (error) {
     console.error("Error fetching student details:", error);
     return res.status(500).json({ message: "Failed to fetch student details." });
+  }
+};
+
+export const getGlobalTransactions = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const transactions = await Transaction.find().populate("instituteId", "name brandName").sort({ createdAt: -1 }).limit(200);
+    return res.status(200).json(transactions);
+  } catch (error) {
+    console.error("Error fetching global transactions:", error);
+    return res.status(500).json({ message: "Failed to fetch global transactions." });
   }
 };

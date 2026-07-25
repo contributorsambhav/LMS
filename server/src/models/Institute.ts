@@ -13,6 +13,8 @@ export interface IInstitute extends Document {
   zoomAccountId?: string;
   zoomClientId?: string;
   zoomClientSecret?: string;
+  walletBalance: number;
+  negativeDaysCount: number;
   createdAt: Date;
 }
 
@@ -37,7 +39,9 @@ const InstituteSchema = new Schema<IInstitute>(
     },
     zoomAccountId: { type: String, trim: true },
     zoomClientId: { type: String, trim: true },
-    zoomClientSecret: { type: String, trim: true }
+    zoomClientSecret: { type: String, trim: true },
+    walletBalance: { type: Number, default: 0 },
+    negativeDaysCount: { type: Number, default: 0 }
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

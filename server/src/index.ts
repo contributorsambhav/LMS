@@ -83,19 +83,24 @@ app.get("/", (req: Request, res: Response) => {
   res.status(200).send("Welcome to the LumenLMS Backend API. Access /api/health for system status.");
 });
 
+import { startBillingCron } from "./jobs/billingCron";
+
 // Connect to Database and start server
 const startServer = async () => {
   try {
     await connectDB();
+
+    // Start background jobs
+    startBillingCron();
 
     // Seed default plans if none exist
     const planCount = await Plan.countDocuments();
     if (planCount === 0) {
       console.log("Seeding default pricing plans...");
       await Plan.insertMany([
-        { planCode: 'Basic', name: 'Basic Plan', price: '$299/mo', apiLimit: '50k req/mo', details: 'Best for individual training hubs' },
-        { planCode: 'Premium', name: 'Premium Plan', price: '$599/mo', apiLimit: '250k req/mo', details: 'Perfect for growing educational institutions' },
-        { planCode: 'Enterprise', name: 'Enterprise Plan', price: '$1,450/mo', apiLimit: 'Unlimited', details: 'Full power for university-scale platforms' },
+        { planCode: 'Basic', name: 'Basic Plan', price: '₹299/mo', apiLimit: '50k req/mo', details: 'Best for individual training hubs' },
+        { planCode: 'Premium', name: 'Premium Plan', price: '₹599/mo', apiLimit: '250k req/mo', details: 'Perfect for growing educational institutions' },
+        { planCode: 'Enterprise', name: 'Enterprise Plan', price: '₹1,450/mo', apiLimit: 'Unlimited', details: 'Full power for university-scale platforms' },
         { planCode: 'Custom', name: 'Custom Plan', price: 'Contact Sales', apiLimit: 'Customized', details: 'Tailored limits and dedicated support' }
       ]);
     }
