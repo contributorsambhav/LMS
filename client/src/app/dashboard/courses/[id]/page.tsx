@@ -1417,8 +1417,8 @@ export default function CourseDetailsPage() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex border-b border-border space-x-1 shrink-0 overflow-x-auto">
-        {(['lessons', 'sessions', 'materials', 'quizzes', 'assignments', 'roster', 'progress', ...(isStudent ? ['tasks'] : []), ...(!isStudent ? ['grading'] : [])] as any[]).map((tab) => (
+      <div className="flex border-b border-border space-x-1 shrink-0 overflow-x-auto scrollbar-violet">
+        {(['lessons', 'sessions', 'materials', 'quizzes', 'assignments', 'roster', 'progress', 'doubts', ...(isStudent ? ['tasks'] : []), ...(!isStudent ? ['grading'] : [])] as any[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -1428,7 +1428,7 @@ export default function CourseDetailsPage() {
                 : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
-            {tab === 'lessons' ? 'Recorded Lessons' : tab === 'sessions' ? 'Live Sessions' : tab === 'materials' ? `Materials (${materials.length})` : tab === 'quizzes' ? `Quizzes (${quizzes.length})` : tab === 'assignments' ? `Assignments (${assignments.length})` : tab === 'progress' ? (isStudent ? 'My Progress' : 'Course Analytics') : tab === 'tasks' ? 'Pending Tasks' : tab === 'grading' ? 'Pending Grading' : `Class Roster (${students.length + courseFaculty.length})`}
+            {tab === 'lessons' ? 'Recorded Lessons' : tab === 'sessions' ? 'Live Sessions' : tab === 'materials' ? `Materials (${materials.length})` : tab === 'quizzes' ? `Quizzes (${quizzes.length})` : tab === 'assignments' ? `Assignments (${assignments.length})` : tab === 'progress' ? (isStudent ? 'My Progress' : 'Course Analytics') : tab === 'tasks' ? 'Pending Tasks' : tab === 'grading' ? 'Pending Grading' : tab === 'doubts' ? 'Doubt Portal' : `Class Roster (${students.length + courseFaculty.length})`}
           </button>
         ))}
       </div>
@@ -1559,7 +1559,7 @@ export default function CourseDetailsPage() {
 
         {/* GRADING TAB (FACULTY/ADMIN) */}
         {activeTab === 'grading' && (
-          <GradingTab pendingGrading={pendingGrading} />
+          <GradingTab pendingGrading={pendingGrading} courseId={courseId as string} />
         )}
 
         {/* 4. PROGRESS / ANALYTICS TAB */}

@@ -14,6 +14,12 @@ export interface IDoubt extends Document {
     email: string;
     role: string;
   };
+  assignedTo?: {
+    _id: mongoose.Types.ObjectId;
+    name: string;
+    email: string;
+    role: string;
+  };
   subject: string;
   status: "open" | "resolved";
   resolvedByName?: string;
@@ -31,6 +37,12 @@ const DoubtSchema: Schema = new Schema(
       role: { type: String, required: true }
     },
     facultyId: {
+      _id: { type: Schema.Types.ObjectId },
+      name: { type: String },
+      email: { type: String },
+      role: { type: String }
+    },
+    assignedTo: {
       _id: { type: Schema.Types.ObjectId },
       name: { type: String },
       email: { type: String },

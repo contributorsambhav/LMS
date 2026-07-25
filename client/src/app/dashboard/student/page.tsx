@@ -342,7 +342,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto scrollbar-violet">
         <button 
           onClick={() => setActiveTab('overview')} 
           className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${

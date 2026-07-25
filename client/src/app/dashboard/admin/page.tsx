@@ -32,6 +32,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
 
+  const [expandedDescIds, setExpandedDescIds] = useState<Record<string, boolean>>({});
+  const toggleDesc = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setExpandedDescIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   // Approval action states
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
@@ -405,7 +411,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1 scrollbar-violet">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'approvals', label: `Approvals (${pendingUsers.length})` },
@@ -427,7 +433,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Overview */}
-      {activeTab === 'overview' && (
+      {(activeTab === 'overview' || activeTab === 'courses') && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
@@ -474,13 +480,29 @@ export default function AdminDashboard() {
                     <div 
                       key={course._id} 
                       onClick={() => openCourseDetails(course)}
-                      className="bg-card border border-border rounded-lg p-5 hover:bg-secondary/20 transition-colors cursor-pointer flex items-center justify-between"
+                      className="bg-card border border-border rounded-lg p-5 hover:bg-secondary/20 transition-colors cursor-pointer flex items-start justify-between"
                     >
-                      <div>
-                        <h4 className="font-semibold text-foreground text-sm">{course.name}</h4>
-                        <p className="text-xs text-muted-foreground mt-1">{course.description}</p>
+                      <div className="flex-1 pr-4">
+                        <h4 className="font-semibold text-foreground text-sm line-clamp-1">{course.name}</h4>
+                        {course.description && (
+                          <p className={`mt-1 text-[11px] text-muted-foreground ${expandedDescIds[course._id] ? '' : 'line-clamp-2'}`}>
+                            {expandedDescIds[course._id] || course.description.length <= 120 ? (
+                              <>
+                                {course.description}
+                                {course.description.length > 120 && (
+                                  <span onClick={(e) => toggleDesc(e, course._id)} className="text-primary font-medium ml-1 hover:underline cursor-pointer">show less</span>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {course.description.substring(0, 120)}...
+                                <span onClick={(e) => toggleDesc(e, course._id)} className="text-primary font-medium ml-1 hover:underline cursor-pointer">read more</span>
+                              </>
+                            )}
+                          </p>
+                        )}
                       </div>
-                      <div className="text-right text-xs text-muted-foreground">
+                      <div className="text-right text-xs text-muted-foreground shrink-0">
                         Code: <strong className="text-foreground font-mono font-medium">{course.studentCode}</strong>
                       </div>
                     </div>

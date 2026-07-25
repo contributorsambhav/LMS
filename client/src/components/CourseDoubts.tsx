@@ -15,6 +15,7 @@ interface DoubtThread {
   courseId: string;
   studentId: User;
   facultyId?: User;
+  assignedTo?: User;
   status: "open" | "resolved";
   resolvedByName?: string;
   subject: string;
@@ -107,11 +108,20 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
       }
     };
 
+    const assignmentHandler = (updatedThread: DoubtThread) => {
+      if (updatedThread._id === activeThread._id) {
+        setActiveThread(updatedThread);
+        setThreads((prev) => prev.map((t) => (t._id === updatedThread._id ? updatedThread : t)));
+      }
+    };
+
     socket.on("newMessage", messageHandler);
+    socket.on("doubtAssigned", assignmentHandler);
 
     return () => {
       socket.emit("leaveThread", activeThread._id);
       socket.off("newMessage", messageHandler);
+      socket.off("doubtAssigned", assignmentHandler);
     };
   }, [socket, activeThread]);
 
@@ -162,8 +172,27 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
         },
         body: JSON.stringify({ text: textToSend })
       });
-      // The socket will emit the message, but if we don't get it immediately, 
-      // we can also append it manually, though the socket handler should catch it.
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAssignThread = async () => {
+    if (!session?.token || !activeThread) return;
+
+    try {
+      const res = await fetch(`${DOUBT_SERVICE_URL}/api/doubts/${activeThread._id}/assign`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.token}`
+        }
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setThreads(threads.map(t => t._id === updated._id ? updated : t));
+        setActiveThread(updated);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -287,17 +316,30 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
               <div>
                 <h3 className="font-bold text-foreground text-sm">{activeThread.subject}</h3>
                 <p className="text-[10px] text-muted-foreground">
-                  {isStudent ? (activeThread.facultyId ? `Assigned to: ${activeThread.facultyId.name}` : 'Awaiting Faculty Response') : `Student: ${activeThread.studentId?.name}`}
+                  {isStudent ? (activeThread.assignedTo ? `Assigned to: ${activeThread.assignedTo.name}` : 'Awaiting Faculty Assignment') : `Student: ${activeThread.studentId?.name}`}
                 </p>
+                {!isStudent && activeThread.assignedTo && (
+                  <p className="text-[10px] text-primary font-semibold">Assigned to: {activeThread.assignedTo.name}</p>
+                )}
               </div>
-              {activeThread.status === 'open' && (
-                <button
-                  onClick={handleResolveThread}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-muted-foreground text-[10px] font-semibold rounded transition"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Mark Resolved
-                </button>
-              )}
+              <div className="flex gap-2">
+                {activeThread.status === 'open' && !isStudent && !activeThread.assignedTo && (
+                  <button
+                    onClick={handleAssignThread}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-semibold rounded transition"
+                  >
+                    Assign to Me
+                  </button>
+                )}
+                {activeThread.status === 'open' && (activeThread.assignedTo || !isStudent) && (
+                  <button
+                    onClick={handleResolveThread}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-muted-foreground text-[10px] font-semibold rounded transition"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Mark Resolved
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Chat Messages */}

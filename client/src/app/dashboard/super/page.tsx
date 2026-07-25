@@ -371,7 +371,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1 scrollbar-violet">
         {[
           { id: 'overview', label: 'Overview' },
           { id: 'tenants', label: `Tenants Management (${institutes.length})` },

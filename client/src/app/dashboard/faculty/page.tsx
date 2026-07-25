@@ -56,6 +56,12 @@ export default function FacultyDashboard() {
   const [loadingInstitutes, setLoadingInstitutes] = useState(false);
   const [selectedInstituteId, setSelectedInstituteId] = useState('');
   const [affiliationStatus, setAffiliationStatus] = useState<string>('');
+  const [expandedDescIds, setExpandedDescIds] = useState<Record<string, boolean>>({});
+  const toggleDesc = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setExpandedDescIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const [currentInstituteId, setCurrentInstituteId] = useState<string | null>(null);
   const [submittingAffiliation, setSubmittingAffiliation] = useState(false);
   const [affiliationError, setAffiliationError] = useState('');
@@ -672,7 +678,7 @@ export default function FacultyDashboard() {
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto">
+      <div className="flex border-b border-border gap-6 text-sm overflow-x-auto scrollbar-violet">
         <button 
           onClick={() => setActiveTab('overview')} 
           className={`pb-2.5 font-medium transition-colors border-b-2 cursor-pointer shrink-0 ${
@@ -934,14 +940,34 @@ export default function FacultyDashboard() {
                       onClick={() => openCourseDetails(course)}
                       className="bg-card border border-border rounded-lg p-5 transition-colors hover:bg-secondary/20 cursor-pointer"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-medium text-primary font-mono">{course.courseCode}</span>
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="flex-1 pr-4">
+                          <div className="flex items-center gap-2 mb-1.5">
                             <span className="text-[10px] text-muted-foreground">Active Director</span>
                           </div>
-                          <h4 className="font-semibold text-foreground text-sm mt-2">{course.name}</h4>
-                          <p className="text-xs text-muted-foreground mt-1">{course.description}</p>
+                          {(course.courseCode || course.description) && (
+                            <h4 className="font-semibold text-foreground text-sm line-clamp-1">Course Code: {course.courseCode || course.description}</h4>
+                          )}
+                          <h4 className="font-semibold text-foreground text-sm line-clamp-1">
+                            {course.name}
+                          </h4>
+                          {course.courseCode && course.description && (
+                            <p className={`mt-1 text-[11px] text-muted-foreground ${expandedDescIds[course._id] ? '' : 'line-clamp-2'}`}>
+                              {expandedDescIds[course._id] || course.description.length <= 70 ? (
+                                <>
+                                  {course.description}
+                                  {course.description.length > 70 && (
+                                    <span onClick={(e) => toggleDesc(e, course._id)} className="text-primary font-medium ml-1 hover:underline cursor-pointer">show less</span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {course.description.substring(0, 70)}...
+                                  <span onClick={(e) => toggleDesc(e, course._id)} className="text-primary font-medium ml-1 hover:underline cursor-pointer">read more</span>
+                                </>
+                              )}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -987,21 +1013,38 @@ export default function FacultyDashboard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {courses.map((course: any) => (
-                <div key={course._id} className="bg-card border border-border rounded-lg overflow-hidden flex flex-col justify-between">
-                  <div className="p-6">
-                    <span className="rounded bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary font-mono">{course.courseCode}</span>
-                    <h3 className="mt-4 text-base font-semibold text-foreground leading-tight">{course.name}</h3>
-                    <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{course.description}</p>
+                <div key={course._id} className="bg-card border border-border rounded-xl overflow-hidden flex items-start justify-between p-5 hover:border-primary/50 transition-colors">
+                  <div className="flex-1 pr-4">
+                    {(course.courseCode || course.description) && (
+                      <h3 className="text-sm font-bold text-foreground leading-tight line-clamp-1">Course Code: {course.courseCode || course.description}</h3>
+                    )}
+                    <h3 className="text-sm font-bold text-foreground leading-tight line-clamp-1 pt-6">
+                      {course.name}
+                    </h3>
+                    {course.courseCode && course.description && (
+                      <p className={`mt-1.5 text-[11px] text-muted-foreground ${expandedDescIds[course._id] ? '' : 'line-clamp-2'}`}>
+                        {expandedDescIds[course._id] || course.description.length <= 70 ? (
+                          <>
+                            {course.description}
+                            {course.description.length > 70 && (
+                              <span onClick={(e) => toggleDesc(e, course._id)} className="text-primary font-medium ml-1 hover:underline cursor-pointer">show less</span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {course.description.substring(0, 70)}...
+                            <span onClick={(e) => toggleDesc(e, course._id)} className="text-primary font-medium ml-1 hover:underline cursor-pointer">read more</span>
+                          </>
+                        )}
+                      </p>
+                    )}
                   </div>
-                  <div className="border-t border-border bg-secondary/10 px-6 py-4 flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">LumenEngine Control Panel</span>
-                    <button 
-                      onClick={() => openCourseDetails(course)}
-                      className="rounded border border-border hover:bg-secondary bg-card px-3 py-1.5 text-xs font-medium text-foreground flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <PlayCircle className="h-4 w-4 text-primary" /> Manage Course
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => openCourseDetails(course)}
+                    className="rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 bg-secondary/30 px-3 py-2 text-[11px] font-semibold text-foreground flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                  >
+                    <PlayCircle className="h-4 w-4 text-primary" /> Manage Course
+                  </button>
                 </div>
               ))}
             </div>

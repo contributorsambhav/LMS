@@ -119,20 +119,68 @@ app.post("/api/doubts/:threadId/messages", authenticateRest, async (req: any, re
   }
 });
 
+app.patch("/api/doubts/:threadId/assign", authenticateRest, async (req: any, res: any) => {
+  try {
+    const { threadId } = req.params;
+    const userId = req.user.id || req.user.userId;
+    const name = req.user.name;
+    const email = req.user.email;
+    const role = req.user.role;
+
+    if (role !== 'Faculty') {
+      return res.status(403).json({ error: "Only faculty can assign doubts" });
+    }
+
+    const updated = await Doubt.findByIdAndUpdate(
+      threadId,
+      {
+        assignedTo: { _id: userId, name, email, role },
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+    
+    // Broadcast assignment update to room
+    io.to(threadId).emit("doubtAssigned", updated);
+
+    res.status(200).json(updated);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to assign doubt" });
+  }
+});
+
 app.patch("/api/doubts/:threadId/status", authenticateRest, async (req: any, res: any) => {
   try {
     const { threadId } = req.params;
     const { status, resolvedByName } = req.body;
 
+    const doubt = await Doubt.findById(threadId);
+    if (!doubt) return res.status(404).json({ error: "Doubt not found" });
+
+    // If resolved by student, use the assigned faculty's name
+    const finalResolvedBy = resolvedByName || (status === 'resolved' && doubt.assignedTo ? doubt.assignedTo.name : undefined);
+
     const updated = await Doubt.findByIdAndUpdate(
       threadId,
-      { status, resolvedByName, updatedAt: new Date() },
+      { status, resolvedByName: finalResolvedBy, updatedAt: new Date() },
       { new: true }
     );
     
     res.status(200).json(updated);
   } catch (err) {
     res.status(500).json({ error: "Failed to update status" });
+  }
+});
+
+// Endpoint to fetch assigned doubts for a faculty member in a specific course
+app.get("/api/doubts/assigned/:courseId", authenticateRest, async (req: any, res: any) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id || req.user.userId;
+    const doubts = await Doubt.find({ courseId, "assignedTo._id": userId, status: "open" }).sort({ updatedAt: -1 });
+    res.status(200).json(doubts);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch assigned doubts" });
   }
 });
 
