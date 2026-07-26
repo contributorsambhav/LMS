@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { authenticate, checkRole } from "../middleware/auth";
-import { upload } from "../middleware/upload";
 import {
   createAssignment,
   getAssignmentsByCourse,
@@ -41,7 +40,6 @@ router.delete(
 router.post(
   "/:id/submit",
   checkRole(["Student"]),
-  upload.single("file"),
   submitAssignment
 );
 router.get("/:id/submissions", getSubmissions);

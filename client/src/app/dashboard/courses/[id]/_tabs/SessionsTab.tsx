@@ -126,16 +126,22 @@ export default function SessionsTab({
                         {sess.attachments.map((fileUrl: string, idx: number) => {
                           const filename = fileUrl.split('/').pop() || `Attachment-${idx + 1}`;
                           return (
-                            <a
+                            <button
                               key={idx}
-                              href={`${API_BASE_URL}${fileUrl}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded border border-border bg-secondary/20 hover:bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const url = fileUrl.startsWith('http') ? fileUrl : `${API_BASE_URL}${fileUrl}`;
+                                if (url.toLowerCase().endsWith('.pdf')) {
+                                  window.open(`/pdf-viewer?url=${encodeURIComponent(url)}&title=${encodeURIComponent(filename.slice(14) || filename)}`, '_blank');
+                                } else {
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded border border-border bg-secondary/20 hover:bg-secondary px-2.5 py-1 text-[11px] text-foreground transition-colors cursor-pointer"
                             >
                               <FileText className="h-3 w-3 text-red-500" />
                               <span>{filename.slice(14) || filename}</span>
-                            </a>
+                            </button>
                           );
                         })}
                       </div>

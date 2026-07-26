@@ -83,7 +83,14 @@ export default function MaterialsTab({
                         <button
                           onClick={(e) => {
                             e.preventDefault();
-                            window.open(`${API_BASE_URL}${mat.filePath}#toolbar=0`, '_blank', 'noopener,noreferrer');
+                            const url = mat.filePath.startsWith('http') ? mat.filePath : `${API_BASE_URL}${mat.filePath}`;
+                            
+                            // Check if it's a PDF. If it's a PDF, use the secure viewer route.
+                            if (url.toLowerCase().endsWith('.pdf')) {
+                              window.open(`/pdf-viewer?url=${encodeURIComponent(url)}&title=${encodeURIComponent(mat.title || mat.originalName || 'Document')}`, '_blank');
+                            } else {
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                            }
                           }}
                           onContextMenu={(e) => e.preventDefault()}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline cursor-pointer"

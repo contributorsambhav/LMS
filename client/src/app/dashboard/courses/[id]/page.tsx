@@ -25,6 +25,7 @@ import TasksTab from './_tabs/TasksTab';
 import GradingTab from './_tabs/GradingTab';
 import CourseDoubts from '../../../../components/CourseDoubts';
 import CourseModals from './_modals/CourseModals';
+import ConfirmModal from '../../../../components/ConfirmModal';
 
 export default function CourseDetailsPage() {
   const params = useParams();
@@ -74,6 +75,17 @@ export default function CourseDetailsPage() {
   const [lessonCreateError, setLessonCreateError] = useState('');
   const [lessonCreateSuccess, setLessonCreateSuccess] = useState('');
   const [lessonCreateSubmitting, setLessonCreateSubmitting] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (lessonCreateSubmitting) {
+        e.preventDefault();
+        e.returnValue = 'Upload is in progress. Leaving this page may cause issues.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [lessonCreateSubmitting]);
 
   // Quiz states
   const [quizzes, setQuizzes] = useState<any[]>([]);
@@ -171,6 +183,8 @@ export default function CourseDetailsPage() {
   const [materialError, setMaterialError] = useState('');
   const [materialSuccess, setMaterialSuccess] = useState('');
   const [materialSubmitting, setMaterialSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState('');
 
   // Form states - Direct Student Enrollment
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -201,6 +215,37 @@ export default function CourseDetailsPage() {
   const forceRefresh = () => {
     fetchCourseData();
     router.refresh();
+  };
+
+  const uploadFileWithProgress = (url: string, file: File, token: string, fieldName: string, extraData: any): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append(fieldName, file);
+      if (extraData) {
+        Object.keys(extraData).forEach(key => formData.append(key, extraData[key]));
+      }
+      
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percentComplete);
+        }
+      };
+      
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error(xhr.statusText));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Upload failed"));
+      xhr.send(formData);
+    });
   };
 
   const fetchCourseData = async () => {
@@ -394,7 +439,6 @@ export default function CourseDetailsPage() {
   };
   
   const actual_handleDeleteCourse = async () => {
-    if (!confirm('Are you absolutely sure you want to delete this course? This will permanently delete all classes, rosters, and uploaded materials.')) return;
     if (!session?.token) return;
 
     try {
@@ -490,16 +534,34 @@ export default function CourseDetailsPage() {
     setMaterialError('');
     setMaterialSuccess('');
     setMaterialSubmitting(true);
-
-    const formData = new FormData();
-    formData.append('title', materialTitle);
-    formData.append('pdf', materialFile);
+    setUploadProgress(0);
 
     try {
+      let fileUrl = "";
+      let sizeInBytes = 0;
+
+      if (materialFile) {
+        // Step 1: Upload PDF to stream-service
+        const uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/document', materialFile, session.token, 'document', {
+          instituteId: courseData.instituteId,
+          courseId
+        });
+        fileUrl = uploadRes.url;
+        sizeInBytes = uploadRes.sizeInBytes || 0;
+      }
+
+      // Step 2: Save to central server
       const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/materials`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session.token}` },
-        body: formData
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.token}`
+        },
+        body: JSON.stringify({
+          title: materialTitle,
+          fileUrl,
+          sizeInBytes
+        })
       });
 
       const data = await res.json();
@@ -516,6 +578,7 @@ export default function CourseDetailsPage() {
       toast.error('Network error uploading material.');
     } finally {
       setMaterialSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -637,7 +700,6 @@ export default function CourseDetailsPage() {
   };
   
   const actual_handleUnassignFaculty = async (facultyId: string) => {
-    if (!confirm('Are you sure you want to unassign this faculty member from this course?')) return;
     if (!session?.token) return;
 
     try {
@@ -672,7 +734,6 @@ export default function CourseDetailsPage() {
   };
   
   const actual_handleRemoveStudent = async (studentId: string) => {
-    if (!confirm('Are you sure you want to remove this student from this course?')) return;
     if (!session?.token) return;
 
     try {
@@ -727,45 +788,96 @@ export default function CourseDetailsPage() {
     }
 
     setLessonCreateSubmitting(true);
-    setLessonCreateError('');
-    setLessonCreateSuccess('');
+    setUploadProgress(0);
+    setUploadStage('Uploading file to server...');
 
     try {
-      const formData = new FormData();
-      formData.append('title', lessonTitle);
-      formData.append('description', lessonDesc);
-      formData.append('duration', String(lessonDuration));
+      let fileUrl = "";
+      let sizeInBytes = 0;
+      let uploadRes: any = null;
+
       if (lessonFile) {
-        formData.append('video', lessonFile);
+        // Step 1: Upload to stream-service
+        uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/video', lessonFile, session.token, 'video', {
+          resolution: '1080p',
+          instituteId: courseData.instituteId,
+          courseId
+        });
+        fileUrl = uploadRes.masterUrl || uploadRes.url;
+        sizeInBytes = uploadRes.sizeInBytes || 0;
       }
+
+      setUploadStage('Saving to database...');
+      // Step 2: Save to central server IMMEDIATELY after upload finishes
+      const payload = {
+        title: lessonTitle,
+        description: lessonDesc,
+        duration: lessonDuration,
+        fileUrl,
+        sizeInBytes
+      };
 
       const res = await fetch(`${API_BASE_URL}/api/lessons/courses/${courseId}`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${session.token}`
         },
-        body: formData
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.message || 'Failed to create lesson.');
-      } else {
-        toast.success('Lesson created successfully!');
-        setLessonTitle('');
-        setLessonDesc('');
-        setLessonDuration(0);
-        setLessonFile(null);
-        forceRefresh();
-        setTimeout(() => {
-          setShowAddLessonModal(false);
-          setLessonCreateSuccess('');
-        }, 1500);
+        setLessonCreateSubmitting(false);
+        setUploadStage('');
+        return;
       }
+
+      toast.success('Lesson saved! Transcoding in background...');
+      forceRefresh(); // Show lesson in UI immediately
+      
+      // Step 3: Wait for transcoder to finish via SSE so we can show progress in UI
+      if (uploadRes && uploadRes.videoId) {
+         await new Promise((resolve, reject) => {
+           const source = new EventSource(`http://localhost:4000/api/upload/video/status/${uploadRes.videoId}`);
+           source.onmessage = (event) => {
+             const data = JSON.parse(event.data);
+             if (data.stage === 'processing_original') {
+               setUploadStage("Optimizing Quality...");
+               setUploadProgress(Number((data.percent || 0).toFixed(2)));
+             } else if (data.stage === 'uploading') {
+               setUploadStage("Uploading to CDN...");
+               setUploadProgress(Number((data.percent || 0).toFixed(2)));
+             } else if (data.stage === 'complete') {
+               setUploadStage("Finalizing...");
+               source.close();
+               resolve(null);
+             } else if (data.stage === 'error') {
+               source.close();
+               reject(new Error("Video processing failed"));
+             }
+           };
+           source.onerror = () => {
+             source.close();
+             reject(new Error("SSE Connection lost"));
+           };
+         });
+      }
+
+      setLessonTitle('');
+      setLessonDesc('');
+      setLessonDuration(0);
+      setLessonFile(null);
+      setTimeout(() => {
+        setShowAddLessonModal(false);
+        setLessonCreateSuccess('');
+      }, 1500);
     } catch (err) {
       toast.error('Network error occurred.');
     } finally {
       setLessonCreateSubmitting(false);
+      setUploadStage('');
     }
   };
 
@@ -780,7 +892,6 @@ export default function CourseDetailsPage() {
   };
   
   const actual_handleDeleteLesson = async (lessonId: string) => {
-    if (!confirm('Are you sure you want to delete this lesson?')) return;
     if (!session?.token) return;
 
     try {
@@ -1216,16 +1327,25 @@ export default function CourseDetailsPage() {
     }
 
     setAssignmentSubmittingFile(true);
+    setUploadProgress(0);
     try {
-      const formData = new FormData();
-      formData.append('file', assignmentFile);
+      // Step 1: Upload PDF to stream-service
+      const uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/document', assignmentFile, session.token, 'document', {
+        instituteId: courseData?.instituteId || '',
+        courseId
+      });
+      const fileUrl = uploadRes.url;
+      const sizeInBytes = uploadRes.sizeInBytes || 0;
+      const fileName = uploadRes.originalName || assignmentFile.name;
 
+      // Step 2: Submit to central server
       const res = await fetch(`${API_BASE_URL}/api/assignments/${selectedAssignment._id}/submit`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${session.token}`
         },
-        body: formData
+        body: JSON.stringify({ fileUrl, fileName, sizeInBytes })
       });
 
       const data = await res.json();
@@ -1242,6 +1362,7 @@ export default function CourseDetailsPage() {
       toast.error('Network error uploading assignment.');
     } finally {
       setAssignmentSubmittingFile(false);
+      setUploadProgress(0);
     }
   };
 
@@ -1446,6 +1567,9 @@ export default function CourseDetailsPage() {
             setShowAddLessonModal={setShowAddLessonModal}
             handleDeleteLesson={handleDeleteLesson}
             handleUpdateProgress={handleUpdateProgress}
+            courseId={courseId as string}
+            instituteId={courseData?.instituteId as string}
+            token={session?.token || ''}
           />
         )}
 
@@ -1799,6 +1923,9 @@ export default function CourseDetailsPage() {
             setMaterialSuccess={setMaterialSuccess}
             materialSubmitting={materialSubmitting}
             setMaterialSubmitting={setMaterialSubmitting}
+            uploadProgress={uploadProgress}
+            setUploadProgress={setUploadProgress}
+            uploadStage={uploadStage}
             selectedStudentIds={selectedStudentIds}
             setSelectedStudentIds={setSelectedStudentIds}
             enrollError={enrollError}
@@ -1841,6 +1968,13 @@ export default function CourseDetailsPage() {
             copyToClipboard={copyToClipboard}
           />
 
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen} 
+        title={confirmModal.title} 
+        message={confirmModal.message} 
+        onConfirm={confirmModal.onConfirm} 
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })} 
+      />
     </div>
   );
 }

@@ -101,17 +101,17 @@ export const getAssignmentById = async (req: AuthenticatedRequest, res: Response
   }
 };
 
-// Submit Assignment (Student only)
 export const submitAssignment = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params; // assignmentId
+    const { fileUrl, fileName, sizeInBytes } = req.body;
 
     if (!req.user) {
       return res.status(401).json({ message: "Unauthorized." });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ message: "Please upload a submission file (PDF)." });
+    if (!fileUrl) {
+      return res.status(400).json({ message: "Please provide a valid file URL (submission file)." });
     }
 
     const assignment = await Assignment.findById(id);
@@ -128,12 +128,25 @@ export const submitAssignment = async (req: AuthenticatedRequest, res: Response)
     const submission = new Submission({
       studentId: req.user.id,
       assignmentId: id,
-      filePath: `/uploads/${req.file.filename}`,
-      fileName: req.file.originalname,
+      filePath: fileUrl,
+      fileName: fileName || "Submission",
       submittedAt: new Date()
     });
 
     await submission.save();
+
+    // Track storage usage (using student's institute)
+    if (sizeInBytes && req.user.instituteId) {
+      await Course.findById(assignment.courseId).then(async (course) => {
+          if(course) {
+            const Institute = (await import("../models/Institute")).Institute;
+            await Institute.findByIdAndUpdate(course.instituteId, {
+              $inc: { "storageUsage.documentBytes": sizeInBytes }
+            });
+          }
+      });
+    }
+
     return res.status(201).json({ message: "Assignment submitted successfully.", submission });
   } catch (error: any) {
     console.error("Error submitting assignment:", error);

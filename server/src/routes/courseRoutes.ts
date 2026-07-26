@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { authenticate, checkRole, checkApproved } from "../middleware/auth";
-import { upload } from "../middleware/upload";
 import { 
   joinCourse, 
   getUserCourses,
@@ -57,8 +56,8 @@ router.get("/my-tasks", authenticate, checkApproved, checkRole(["Student"]), get
 router.get("/students", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), getInstituteStudents);
 
 // Faculty Enrollment Approval / Requests (Must be placed before parametric routes like /:courseId)
-router.get("/pending-enrollments", authenticate, checkApproved, checkRole(["Faculty"]), getPendingEnrollments);
-router.patch("/enrollments/:id/status", authenticate, checkApproved, checkRole(["Faculty"]), updateEnrollmentStatus);
+router.get("/pending-enrollments", authenticate, checkApproved, checkRole(["Faculty", "InstituteAdmin", "SuperAdmin"]), getPendingEnrollments);
+router.patch("/enrollments/:id/status", authenticate, checkApproved, checkRole(["Faculty", "InstituteAdmin", "SuperAdmin"]), updateEnrollmentStatus);
 
 // Pending Grading tasks for Faculty/Admin (Global)
 router.get("/pending/grading", authenticate, checkApproved, checkRole(["Faculty", "InstituteAdmin", "SuperAdmin"]), getPendingGradingTasks);
@@ -74,7 +73,7 @@ router.put("/:courseId", authenticate, checkApproved, checkRole(["InstituteAdmin
 router.delete("/:courseId", authenticate, checkApproved, checkRole(["InstituteAdmin"]), deleteCourse);
 
 // Session Management inside Courses
-router.post("/:courseId/sessions", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), upload.array("pdfs"), addCourseSession);
+router.post("/:courseId/sessions", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), addCourseSession);
 router.get("/:courseId/sessions", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty", "Student"]), getCourseSessions);
 
 // Direct Enrollment inside Courses
@@ -90,7 +89,7 @@ router.post("/:courseId/unassign-faculty", authenticate, checkApproved, checkRol
 router.delete("/:courseId/students/:studentId", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), removeStudentFromCourse);
 
 // Independent Course Materials
-router.post("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), upload.single("pdf"), addCourseMaterial);
+router.post("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), addCourseMaterial);
 router.get("/:courseId/materials", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty", "Student"]), getCourseMaterials);
 router.delete("/:courseId/materials/:materialId", authenticate, checkApproved, checkRole(["InstituteAdmin", "Faculty"]), deleteCourseMaterial);
 

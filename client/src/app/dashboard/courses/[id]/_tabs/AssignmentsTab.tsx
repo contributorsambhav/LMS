@@ -25,7 +25,6 @@ interface AssignmentsTabProps {
   setGradeSubmissionScore: any;
   setGradeSubmissionFeedback: any;
   setShowGradeSubmissionModal: any;
-
 }
 
 export default function AssignmentsTab(props: AssignmentsTabProps) {
@@ -52,7 +51,6 @@ export default function AssignmentsTab(props: AssignmentsTabProps) {
     setGradeSubmissionScore,
     setGradeSubmissionFeedback,
     setShowGradeSubmissionModal,
-
   } = props;
 
   return (
@@ -184,14 +182,20 @@ export default function AssignmentsTab(props: AssignmentsTabProps) {
                           </div>
                           {selectedAssignment.attachmentUrl && (
                             <div className="mt-3">
-                              <a 
-                                href={selectedAssignment.attachmentUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline bg-primary/10 px-2 py-1 rounded"
+                              <button 
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  const url = selectedAssignment.attachmentUrl;
+                                  if (url.toLowerCase().endsWith('.pdf')) {
+                                    window.open(`/pdf-viewer?url=${encodeURIComponent(url)}&title=${encodeURIComponent(selectedAssignment.title + ' Attachment')}`, '_blank');
+                                  } else {
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline bg-primary/10 px-2 py-1 rounded cursor-pointer"
                               >
                                 <FileText className="h-3 w-3" /> View Attachment
-                              </a>
+                              </button>
                             </div>
                           )}
                         </div>
@@ -223,14 +227,20 @@ export default function AssignmentsTab(props: AssignmentsTabProps) {
                               </div>
                               <div className="flex justify-between items-center text-[11px] text-muted-foreground bg-card border border-border rounded p-2.5">
                                 <span className="truncate max-w-[200px] font-mono">{submissions[0].fileName}</span>
-                                <a
-                                  href={`${API_BASE_URL}${submissions[0].filePath}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    const url = submissions[0].filePath.startsWith('http') ? submissions[0].filePath : `${API_BASE_URL}${submissions[0].filePath}`;
+                                    if (url.toLowerCase().endsWith('.pdf')) {
+                                      window.open(`/pdf-viewer?url=${encodeURIComponent(url)}&title=${encodeURIComponent(submissions[0].fileName)}`, '_blank');
+                                    } else {
+                                      window.open(url, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 text-primary hover:underline cursor-pointer"
                                 >
                                   <Eye className="h-3.5 w-3.5" /> View Upload
-                                </a>
+                                </button>
                               </div>
                               {submissions[0].gradedBy && (
                                 <p className="text-[10px] text-muted-foreground mt-1 mb-2">
@@ -306,14 +316,20 @@ export default function AssignmentsTab(props: AssignmentsTabProps) {
                                     <p className="text-[9px] text-muted-foreground mt-1">Submitted: {new Date(sub.submittedAt).toLocaleString()}</p>
                                   </div>
                                   <div className="flex flex-wrap items-center gap-3">
-                                    <a
-                                      href={`${API_BASE_URL}${sub.filePath}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        const url = sub.filePath.startsWith('http') ? sub.filePath : `${API_BASE_URL}${sub.filePath}`;
+                                        if (url.toLowerCase().endsWith('.pdf')) {
+                                          window.open(`/pdf-viewer?url=${encodeURIComponent(url)}&title=${encodeURIComponent((sub.studentId?.name || 'Student') + ' - ' + (sub.fileName || 'Submission'))}`, '_blank');
+                                        } else {
+                                          window.open(url, '_blank', 'noopener,noreferrer');
+                                        }
+                                      }}
                                       className="inline-flex items-center gap-1.5 rounded border border-border bg-secondary hover:bg-secondary/80 px-2.5 py-1 text-[10px] font-semibold transition-colors cursor-pointer"
                                     >
                                       <Eye className="h-3.5 w-3.5" /> View PDF
-                                    </a>
+                                    </button>
                                     <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
                                       sub.graded 
                                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 

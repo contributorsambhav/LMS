@@ -1,4 +1,5 @@
 import React from 'react';
+import { toast } from 'react-toastify';
 import { X, UploadCloud, FileUp, Sparkles, AlertCircle, Clock, CheckCircle2, ChevronRight, FileText, CheckCircle, Video, Plus, Trash2 } from 'lucide-react';
 import { API_BASE_URL } from '../../../../../lib/api';
 
@@ -220,6 +221,9 @@ export default function CourseModals(props: any) {
     setMaterialSuccess,
     materialSubmitting,
     setMaterialSubmitting,
+    uploadProgress,
+    setUploadProgress,
+    uploadStage,
     selectedStudentIds,
     setSelectedStudentIds,
     enrollError,
@@ -259,7 +263,7 @@ export default function CourseModals(props: any) {
     handleAddAssignment,
     handleSubmitAssignment,
     handleGradeSubmission,
-    copyToClipboard,
+    copyToClipboard
   } = props;
 
   return (
@@ -596,9 +600,12 @@ export default function CourseModals(props: any) {
               <button 
                 type="submit"
                 disabled={materialSubmitting}
-                className="w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all mt-4 cursor-pointer disabled:opacity-50"
+                className="w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all mt-4 cursor-pointer disabled:opacity-50 relative overflow-hidden"
               >
-                {materialSubmitting ? 'Uploading...' : 'Upload PDF Document'}
+                {materialSubmitting && uploadProgress > 0 && (
+                  <div className="absolute inset-0 bg-primary-foreground/20 transition-all duration-300 ease-out" style={{ width: `${uploadProgress}%` }} />
+                )}
+                <span className="relative z-10">{materialSubmitting ? `Uploading... ${uploadProgress}%` : 'Upload PDF Document'}</span>
               </button>
             </form>
           </div>
@@ -780,7 +787,13 @@ export default function CourseModals(props: any) {
             <div className="border-b border-border p-6 flex justify-between items-center">
               <h3 className="text-sm font-bold text-foreground">Add Recorded Lesson</h3>
               <button 
-                onClick={() => setShowAddLessonModal(false)}
+                onClick={() => {
+                  if (lessonCreateSubmitting) {
+                    toast.warning("Upload in progress! Please wait until it completes.");
+                  } else {
+                    setShowAddLessonModal(false);
+                  }
+                }}
                 className="rounded-md border border-border p-1.5 hover:bg-secondary transition-colors cursor-pointer"
               >
                 <Plus className="h-4 w-4 rotate-45 text-muted-foreground" />
@@ -827,10 +840,10 @@ export default function CourseModals(props: any) {
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Duration (Minutes)</label>
                 <input 
                   type="number" 
-                  value={lessonDuration}
-                  onChange={(e) => setLessonDuration(Number(e.target.value))}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none"
-                  placeholder="e.g. 45"
+                  value={lessonDuration > 0 ? Math.round(lessonDuration / 60) : ""}
+                  readOnly
+                  className="w-full rounded-md border border-border bg-secondary/50 px-3 py-2 text-xs text-muted-foreground focus:outline-none cursor-not-allowed"
+                  placeholder="Calculated automatically..."
                 />
               </div>
 
@@ -841,7 +854,17 @@ export default function CourseModals(props: any) {
                   accept="video/*"
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
-                      setLessonFile(e.target.files[0]);
+                      const file = e.target.files[0];
+                      setLessonFile(file);
+                      
+                      // Automatically calculate video duration
+                      const video = document.createElement('video');
+                      video.preload = 'metadata';
+                      video.onloadedmetadata = function() {
+                        window.URL.revokeObjectURL(video.src);
+                        setLessonDuration(Math.round(video.duration));
+                      }
+                      video.src = URL.createObjectURL(file);
                     }
                   }}
                   className="w-full text-xs text-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
@@ -851,9 +874,12 @@ export default function CourseModals(props: any) {
               <button 
                 type="submit"
                 disabled={lessonCreateSubmitting}
-                className="w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all mt-4 cursor-pointer disabled:opacity-50"
+                className="w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all mt-4 cursor-pointer disabled:opacity-50 relative overflow-hidden"
               >
-                {lessonCreateSubmitting ? 'Uploading...' : 'Save Lesson'}
+                {lessonCreateSubmitting && uploadProgress > 0 && (
+                  <div className="absolute inset-0 bg-primary-foreground/20 transition-all duration-300 ease-out" style={{ width: `${uploadProgress}%` }} />
+                )}
+                <span className="relative z-10">{lessonCreateSubmitting ? (uploadStage ? `${uploadStage} ${uploadProgress}%` : `Uploading... ${uploadProgress}%`) : 'Save Lesson'}</span>
               </button>
             </form>
           </div>
@@ -1802,9 +1828,12 @@ export default function CourseModals(props: any) {
               <button 
                 type="submit"
                 disabled={assignmentSubmittingFile}
-                className="w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all mt-4 cursor-pointer disabled:opacity-50"
+                className="w-full rounded-md bg-primary py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-all mt-4 cursor-pointer disabled:opacity-50 relative overflow-hidden"
               >
-                {assignmentSubmittingFile ? 'Submitting...' : 'Upload PDF'}
+                {assignmentSubmittingFile && uploadProgress > 0 && (
+                  <div className="absolute inset-0 bg-primary-foreground/20 transition-all duration-300 ease-out" style={{ width: `${uploadProgress}%` }} />
+                )}
+                <span className="relative z-10">{assignmentSubmittingFile ? `Submitting... ${uploadProgress}%` : 'Upload PDF'}</span>
               </button>
             </form>
           </div>

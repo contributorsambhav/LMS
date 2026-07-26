@@ -11,6 +11,9 @@ interface LessonsTabProps {
   setShowAddLessonModal: (show: boolean) => void;
   handleDeleteLesson: (lessonId: string) => void;
   handleUpdateProgress: (lessonId: string, currentTime: number, percentage: number) => void;
+  courseId: string;
+  instituteId: string;
+  token: string;
 }
 
 export default function LessonsTab({
@@ -20,9 +23,124 @@ export default function LessonsTab({
   isStudent,
   setShowAddLessonModal,
   handleDeleteLesson,
-  handleUpdateProgress
+  handleUpdateProgress,
+  courseId,
+  instituteId,
+  token
 }: LessonsTabProps) {
   const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [progressMsg, setProgressMsg] = useState("");
+  const [selectedQualities, setSelectedQualities] = useState<string[]>(['720p', '480p']);
+  const [existingQualities, setExistingQualities] = useState<string[]>([]);
+
+  // Fetch the playlist when a lesson is selected to see which qualities already exist
+  React.useEffect(() => {
+    if (selectedLesson && selectedLesson.videoUrl) {
+      let url = selectedLesson.videoUrl.startsWith('http') ? selectedLesson.videoUrl : `${API_BASE_URL}${selectedLesson.videoUrl}`;
+      url = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
+      
+      fetch(url)
+        .then(res => res.text())
+        .then(text => {
+          const found: string[] = [];
+          if (text.includes('NAME="1080p"')) found.push("1080p");
+          if (text.includes('NAME="720p"')) found.push("720p");
+          if (text.includes('NAME="480p"')) found.push("480p");
+          if (text.includes('NAME="360p"')) found.push("360p");
+          setExistingQualities(found);
+          // Auto-select only qualities that don't exist yet
+          setSelectedQualities(['720p', '480p'].filter(q => !found.includes(q)));
+        })
+        .catch(err => console.error("Error fetching playlist for qualities:", err));
+    } else {
+      setExistingQualities([]);
+    }
+  }, [selectedLesson]);
+
+  const toggleQuality = (q: string) => {
+    setSelectedQualities(prev => prev.includes(q) ? prev.filter(x => x !== q) : [...prev, q]);
+  };
+
+  const handleOptimize = async () => {
+    if (!selectedLesson || !selectedLesson.videoUrl) return;
+    
+    // Extract videoId from URL: .../videos/VIDEO_ID/master.m3u8
+    const match = selectedLesson.videoUrl.match(/\/videos\/([^\/]+)\/master\.m3u8/);
+    if (!match || !match[1]) {
+      alert("Invalid video URL for optimization.");
+      return;
+    }
+    const videoId = match[1];
+
+    setOptimizing(true);
+    try {
+      const res = await fetch("http://localhost:4000/api/upload/video/optimize", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          instituteId,
+          courseId,
+          videoId,
+          qualities: selectedQualities,
+          existingQualities
+        })
+      });
+      if (res.ok) {
+        setProgressMsg("Initializing...");
+        const source = new EventSource(`http://localhost:4000/api/upload/video/status/${videoId}`);
+        source.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.stage === "complete") {
+            setProgressMsg("Optimization Complete! Refreshing...");
+            setOptimizing(false);
+            source.close();
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          } else if (data.stage === "error") {
+            setProgressMsg("Error during optimization.");
+            setOptimizing(false);
+            source.close();
+          } else {
+            let stageName = data.stage;
+            if (stageName === "downloading_raw") stageName = "Downloading";
+            if (stageName === "processing_qualities") stageName = "Transcoding";
+            if (stageName === "uploading") stageName = "Uploading";
+            setProgressMsg(`${stageName} ${data.percent ? data.percent.toFixed(1) + "%" : ""}`);
+          }
+        };
+        source.onerror = () => {
+          source.close();
+          setOptimizing(false);
+          if (progressMsg !== "Optimization Complete!") {
+            setProgressMsg("Connection lost or finished.");
+            setTimeout(() => setProgressMsg(""), 3000);
+          }
+        };
+      } else {
+        alert("Failed to start optimization.");
+        setOptimizing(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error starting optimization.");
+      setOptimizing(false);
+    }
+  };
+
+  const formatDuration = (totalSeconds: number) => {
+    if (!totalSeconds) return '0 min';
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    if (hrs > 0) {
+      return `${hrs} hr ${mins > 0 ? mins + ' min' : ''}`.trim();
+    }
+    return `${Math.max(1, mins)} min`;
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -96,7 +214,7 @@ export default function LessonsTab({
 
                       <div className="flex justify-between items-center text-[10px] text-muted-foreground pt-1">
                         <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {lesson.duration || 0} mins
+                          <Clock className="h-3 w-3" /> {formatDuration(lesson.duration)}
                         </span>
                         {isStudent && (
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
@@ -134,7 +252,7 @@ export default function LessonsTab({
                 {selectedLesson.videoUrl ? (
                   <div className="mt-4">
                     <VideoPlayer
-                      src={`${API_BASE_URL}${selectedLesson.videoUrl}`}
+                      src={selectedLesson.videoUrl.startsWith('http') ? selectedLesson.videoUrl : `${API_BASE_URL}${selectedLesson.videoUrl}`}
                       lessonId={selectedLesson._id}
                       initialTime={selectedLesson.progress?.lastWatchedTimestamp || 0}
                       onProgressUpdate={(lessonId: string, currentTime: number, percentage: number) => handleUpdateProgress(lessonId, currentTime, percentage)}
@@ -145,6 +263,41 @@ export default function LessonsTab({
                     <Video className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
                     <h4 className="text-xs font-semibold text-foreground">No Video Attached</h4>
                     <p className="text-[11px] text-muted-foreground max-w-xs mx-auto">This lesson has no lecture video uploaded.</p>
+                  </div>
+                )}
+                
+                {/* Optimize Controls */}
+                {(isAdmin || isFaculty) && selectedLesson.videoUrl && ['1080p', '720p', '480p', '360p'].filter(q => !existingQualities.includes(q)).length > 0 && (
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-4 border-t border-border mt-4">
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-muted-foreground font-semibold">Generate Qualities:</span>
+                      {['1080p', '720p', '480p', '360p'].filter(q => !existingQualities.includes(q)).map(q => (
+                        <label key={q} className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedQualities.includes(q)}
+                            onChange={() => toggleQuality(q)}
+                            disabled={optimizing}
+                            className="rounded border-border bg-secondary accent-primary"
+                          />
+                          {q}
+                        </label>
+                      ))}
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      {progressMsg && (
+                        <span className="text-xs font-mono text-primary animate-pulse">{progressMsg}</span>
+                      )}
+                      <button
+                        onClick={handleOptimize}
+                        disabled={optimizing || selectedQualities.length === 0}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary/80 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Video className="h-3.5 w-3.5" />
+                        {optimizing ? "Processing..." : "Optimize Qualities"}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

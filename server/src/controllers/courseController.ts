@@ -227,18 +227,29 @@ export const getUserEnrollments = async (req: AuthenticatedRequest, res: Respons
 // Faculty Enrollment Management Actions
 export const getPendingEnrollments = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const facultyId = req.user?.id;
-    if (!facultyId) {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+    const instituteId = req.user?.instituteId;
+
+    if (!userId || !userRole) {
       return res.status(401).json({ message: "Authentication failed: Missing user details." });
     }
 
-    // Find all courses this Faculty member is enrolled in (and approved)
-    const facultyEnrollments = await Enrollment.find({
-      userId: facultyId,
-      role: "Faculty",
-      status: "Approved"
-    });
-    const courseIds = facultyEnrollments.map(e => e.courseId);
+    let courseIds: any[] = [];
+
+    if (userRole === "InstituteAdmin") {
+      // Admin sees pending requests for all courses in their institute
+      const courses = await Course.find({ instituteId });
+      courseIds = courses.map(c => c._id);
+    } else {
+      // Faculty only sees requests for their approved courses
+      const facultyEnrollments = await Enrollment.find({
+        userId: userId,
+        role: "Faculty",
+        status: "Approved"
+      });
+      courseIds = facultyEnrollments.map(e => e.courseId);
+    }
 
     // Get all pending Student enrollments for those courses
     const pendingEnrollments = await Enrollment.find({
@@ -652,7 +663,7 @@ export const getInstituteStudents = async (req: AuthenticatedRequest, res: Respo
 export const addCourseMaterial = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { courseId } = req.params;
-    const { title } = req.body;
+    const { title, fileUrl, sizeInBytes } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const instituteId = req.user?.instituteId;
@@ -661,9 +672,8 @@ export const addCourseMaterial = async (req: AuthenticatedRequest, res: Response
       return res.status(401).json({ message: "Authentication failed: Missing user details." });
     }
 
-    const file = req.file as Express.Multer.File;
-    if (!file) {
-      return res.status(400).json({ message: "PDF file upload is required." });
+    if (!fileUrl) {
+      return res.status(400).json({ message: "File URL is required." });
     }
 
     const course = await Course.findById(courseId);
@@ -692,13 +702,20 @@ export const addCourseMaterial = async (req: AuthenticatedRequest, res: Response
 
     const material = new Material({
       courseId,
-      title: title || file.originalname,
-      originalName: file.originalname,
-      filePath: "/uploads/" + file.filename,
+      title: title || "Untitled Material",
+      originalName: title || "Material",
+      filePath: fileUrl,
       uploadedAt: new Date()
     });
 
     await material.save();
+
+    // Track storage usage
+    if (sizeInBytes) {
+      await Institute.findByIdAndUpdate(instituteId, {
+        $inc: { "storageUsage.documentBytes": sizeInBytes }
+      });
+    }
 
     return res.status(201).json({
       message: "Course material uploaded successfully!",
@@ -944,6 +961,17 @@ export const deleteCourse = async (req: AuthenticatedRequest, res: Response) => 
     await Session.deleteMany({ courseId });
     // Delete Materials
     await Material.deleteMany({ courseId });
+
+    // Clean up all video assets from Cloudflare R2 via stream-service
+    try {
+      const streamServiceUrl = process.env.STREAM_SERVICE_URL || "http://localhost:4000";
+      await fetch(`${streamServiceUrl}/api/upload/course/${instituteId}/${courseId}`, {
+        method: "DELETE"
+      });
+      console.log(`Successfully triggered R2 cleanup for course ${courseId}`);
+    } catch (err) {
+      console.error("Failed to clean up course assets from R2 via stream-service:", err);
+    }
 
     return res.status(200).json({ message: "Course and all associated records deleted successfully!" });
   } catch (error: any) {

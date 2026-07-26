@@ -9,7 +9,7 @@ import { Progress } from "../models/Progress";
 export const createLesson = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { courseId } = req.params;
-    const { title, description, duration } = req.body;
+    const { title, description, duration, fileUrl, sizeInBytes } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const instituteId = req.user?.instituteId;
@@ -50,10 +50,7 @@ export const createLesson = async (req: AuthenticatedRequest, res: Response) => 
     const totalLessons = await Lesson.countDocuments({ courseId });
     const orderNo = totalLessons + 1;
 
-    let videoUrl = "";
-    if (req.file) {
-      videoUrl = "/uploads/" + req.file.filename;
-    }
+    let videoUrl = fileUrl || "";
 
     const lesson = new Lesson({
       courseId,
@@ -65,6 +62,14 @@ export const createLesson = async (req: AuthenticatedRequest, res: Response) => 
     });
 
     await lesson.save();
+
+    // Track storage usage
+    if (sizeInBytes) {
+      const Institute = (await import("../models/Institute")).Institute;
+      await Institute.findByIdAndUpdate(instituteId, {
+        $inc: { "storageUsage.videoBytes": sizeInBytes }
+      });
+    }
 
     return res.status(201).json({
       message: "Lesson added successfully!",
@@ -144,7 +149,7 @@ export const getLessons = async (req: AuthenticatedRequest, res: Response) => {
 export const updateLesson = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params; // Lesson ID
-    const { title, description, duration, orderNo } = req.body;
+    const { title, description, duration, orderNo, fileUrl, sizeInBytes } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const instituteId = req.user?.instituteId;
@@ -187,8 +192,15 @@ export const updateLesson = async (req: AuthenticatedRequest, res: Response) => 
     if (duration !== undefined) lesson.duration = Number(duration);
     if (orderNo !== undefined) lesson.orderNo = Number(orderNo);
 
-    if (req.file) {
-      lesson.videoUrl = "/uploads/" + req.file.filename;
+    if (fileUrl) {
+      lesson.videoUrl = fileUrl;
+      // Track storage usage if a new file is uploaded
+      if (sizeInBytes) {
+        const Institute = (await import("../models/Institute")).Institute;
+        await Institute.findByIdAndUpdate(instituteId, {
+          $inc: { "storageUsage.videoBytes": sizeInBytes }
+        });
+      }
     }
 
     await lesson.save();
