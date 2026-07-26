@@ -14,7 +14,10 @@ import {
   getStudents,
   getStudentDetails,
   deleteUser,
-  getGlobalTransactions
+  getGlobalTransactions,
+  getPromoCodes,
+  createPromoCode,
+  togglePromoCode
 } from "../controllers/superController";
 
 import { Router } from "express";
@@ -33,6 +36,11 @@ router.delete("/institutes/:id", deleteInstitute);
 router.get("/plans", getPlans);
 router.patch("/plans/:id", updatePlan);
 router.get("/transactions", getGlobalTransactions);
+
+// Promo Codes
+router.get("/promos", getPromoCodes);
+router.post("/promos", createPromoCode);
+router.post("/promos/:id/toggle", togglePromoCode);
 
 // Student Management
 router.get("/students", getStudents);

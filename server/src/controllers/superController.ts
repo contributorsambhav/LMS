@@ -7,6 +7,7 @@ import { User } from "../models/User";
 import { Verification } from "../models/Verification";
 import { Plan } from "../models/Plan";
 import { Transaction } from "../models/Transaction";
+import { PromoCode } from "../models/PromoCode";
 import mongoose from "mongoose";
 
 export const getInstitutes = async (req: AuthenticatedRequest, res: Response) => {
@@ -328,5 +329,60 @@ export const getGlobalTransactions = async (req: AuthenticatedRequest, res: Resp
   } catch (error) {
     console.error("Error fetching global transactions:", error);
     return res.status(500).json({ message: "Failed to fetch global transactions." });
+  }
+};
+
+export const getPromoCodes = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const promos = await PromoCode.find().sort({ createdAt: -1 });
+    return res.status(200).json(promos);
+  } catch (error) {
+    console.error("Error fetching promo codes:", error);
+    return res.status(500).json({ message: "Failed to fetch promo codes." });
+  }
+};
+
+export const createPromoCode = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { code, discountPercentage } = req.body;
+    
+    if (!code || discountPercentage === undefined) {
+      return res.status(400).json({ message: "Code and discount percentage are required." });
+    }
+    
+    const existing = await PromoCode.findOne({ code: code.toUpperCase() });
+    if (existing) {
+      return res.status(400).json({ message: "Promo code already exists." });
+    }
+
+    const promo = new PromoCode({
+      code: code.toUpperCase(),
+      discountPercentage: Number(discountPercentage)
+    });
+    
+    await promo.save();
+    return res.status(201).json({ message: "Promo code created successfully.", promo });
+  } catch (error) {
+    console.error("Error creating promo code:", error);
+    return res.status(500).json({ message: "Failed to create promo code." });
+  }
+};
+
+export const togglePromoCode = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const promo = await PromoCode.findById(id);
+    
+    if (!promo) {
+      return res.status(404).json({ message: "Promo code not found." });
+    }
+    
+    promo.isActive = !promo.isActive;
+    await promo.save();
+    
+    return res.status(200).json({ message: `Promo code ${promo.isActive ? 'activated' : 'deactivated'}.`, promo });
+  } catch (error) {
+    console.error("Error toggling promo code:", error);
+    return res.status(500).json({ message: "Failed to toggle promo code." });
   }
 };

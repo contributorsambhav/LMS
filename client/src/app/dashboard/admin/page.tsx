@@ -28,6 +28,9 @@ export default function AdminDashboard() {
   const [institute, setInstitute] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [promoCode, setPromoCode] = useState("");
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [rechargeAmount, setRechargeAmount] = useState<string>("");
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [roster, setRoster] = useState<{faculties: any[], students: any[]}>({ faculties: [], students: [] });
   const [loading, setLoading] = useState(true);
@@ -653,80 +656,143 @@ export default function AdminDashboard() {
           </div>
 
           <div className="border-t border-border pt-6 mt-6">
-            <h4 className="text-sm font-semibold mb-3">Recharge Wallet (1 Month Minimum)</h4>
-            <div className="flex gap-4 items-center">
-              <div className="rounded-md border border-border bg-secondary/50 px-4 py-2 text-sm font-medium text-foreground w-48 text-center cursor-not-allowed">
-                ₹{planPrice}
-              </div>
-              <button 
-                onClick={async () => {
-                   if(planPrice <= 0) return toast.error('Invalid plan price for recharge');
-                   
-                   try {
-                     const orderRes = await fetch(`${API_BASE_URL}/api/auth/create-order`, {
-                         method: 'POST',
-                         headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify({ amount: planPrice })
-                     });
-                     
-                     if (!orderRes.ok) {
-                         return toast.error("Failed to initialize payment.");
-                     }
-                     
-                     const order = await orderRes.json();
-                     
-                     const options = {
-                         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-                         amount: order.amount,
-                         currency: order.currency,
-                         name: "LumenLMS Wallet Recharge",
-                         description: `Adding ₹${planPrice} to Wallet`,
-                         order_id: order.id,
-                         handler: async function (response: any) {
-                             toast.info("Verifying payment...");
-                             try {
-                               const verifyRes = await fetch(`${API_BASE_URL}/api/admin/verify-recharge`, {
-                                   method: 'POST',
-                                   headers: { 
-                                     'Content-Type': 'application/json',
-                                     Authorization: `Bearer ${session?.token}`
-                                   },
-                                   body: JSON.stringify({
-                                       razorpay_payment_id: response.razorpay_payment_id,
-                                       razorpay_order_id: response.razorpay_order_id,
-                                       razorpay_signature: response.razorpay_signature,
-                                       amount: planPrice
-                                   })
-                               });
-                               if (verifyRes.ok) {
-                                   const verifyData = await verifyRes.json();
-                                   setInstitute(verifyData.institute);
-                                   toast.success(`Successfully added ₹${planPrice} to wallet!`);
-                               } else {
-                                   toast.error("Payment verification failed.");
-                               }
-                             } catch(e) {
-                               toast.error("Error verifying payment.");
-                             }
-                         },
-                         prefill: {
-                             name: institute?.legalName,
-                             contact: institute?.phoneNumber
-                         },
-                         theme: {
-                             color: "#3399cc"
-                         }
-                     };
-                     
-                     const rzp1 = new (window as any).Razorpay(options);
-                     rzp1.open();
-                   } catch (e) {
-                     toast.error("Payment service is currently unavailable.");
-                   }
+            <div className="flex flex-col sm:flex-row items-center gap-4 border-t border-border pt-4">
+               <div className="w-full sm:w-auto flex-1">
+                 <h4 className="text-sm font-semibold mb-1">Recharge Wallet</h4>
+                 <p className="text-xs text-muted-foreground">Add funds to keep your services active</p>
+               </div>
+               
+               <div className="flex items-center gap-2">
+                 <div className="relative w-32">
+                   <span className="absolute left-3 top-2 text-xs text-muted-foreground">₹</span>
+                   <input 
+                      type="number" 
+                      placeholder={planPrice.toString()}
+                      value={rechargeAmount}
+                      onChange={(e) => setRechargeAmount(e.target.value)}
+                      className="bg-card border border-input rounded pl-7 pr-3 py-2 text-xs focus:outline-none focus:border-primary w-full"
+                   />
+                 </div>
+                 <input 
+                    type="text" 
+                    placeholder="Promo Code" 
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value);
+                      setDiscountPercent(0);
+                    }}
+                    className="bg-card border border-input rounded px-3 py-2 text-xs focus:outline-none focus:border-primary w-32"
+                 />
+                 <button 
+                    onClick={async () => {
+                      if (!promoCode) return toast.error("Enter a promo code");
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/api/admin/validate-promo`, {
+                          method: 'POST',
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session?.token}`
+                          },
+                          body: JSON.stringify({ code: promoCode })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          setDiscountPercent(data.discountPercentage);
+                          toast.success(`Promo applied! ${data.discountPercentage}% off.`);
+                        } else {
+                          toast.error(data.message || "Invalid code");
+                          setDiscountPercent(0);
+                        }
+                      } catch(e) {
+                        toast.error("Error validating code");
+                      }
+                    }}
+                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-3 py-2 rounded font-medium text-xs transition-colors"
+                 >
+                   Apply
+                 </button>
+               </div>
+               
+               <button 
+                 onClick={async () => {
+                    const finalRechargeAmount = parseFloat(rechargeAmount) || planPrice;
+                    if(finalRechargeAmount <= 0) return toast.error('Invalid amount for recharge');
+                    
+                    try {
+                      const orderRes = await fetch(`${API_BASE_URL}/api/auth/create-order`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ amount: finalRechargeAmount, promoCode: discountPercent > 0 ? promoCode : undefined })
+                      });
+                      
+                      if (!orderRes.ok) {
+                          return toast.error("Failed to initialize payment.");
+                      }
+                      
+                      const order = await orderRes.json();
+                      const discountedPrice = finalRechargeAmount - (finalRechargeAmount * discountPercent / 100);
+                      
+                      const options = {
+                          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                          amount: order.amount,
+                          currency: order.currency,
+                          name: "LumenLMS Wallet Recharge",
+                          description: `Adding ₹${finalRechargeAmount} to Wallet`,
+                          order_id: order.id,
+                          handler: async function (response: any) {
+                              toast.info("Verifying payment...");
+                              try {
+                                const verifyRes = await fetch(`${API_BASE_URL}/api/admin/verify-recharge`, {
+                                    method: 'POST',
+                                    headers: { 
+                                      'Content-Type': 'application/json',
+                                      Authorization: `Bearer ${session?.token}`
+                                    },
+                                    body: JSON.stringify({
+                                        razorpay_payment_id: response.razorpay_payment_id,
+                                        razorpay_order_id: response.razorpay_order_id,
+                                        razorpay_signature: response.razorpay_signature,
+                                        amount: finalRechargeAmount,
+                                        paidAmount: discountPercent > 0 ? discountedPrice : finalRechargeAmount,
+                                        promoCode: discountPercent > 0 ? promoCode : undefined
+                                    })
+                                });
+                                if (verifyRes.ok) {
+                                    const verifyData = await verifyRes.json();
+                                    setInstitute(verifyData.institute);
+                                    toast.success(`Successfully added ₹${finalRechargeAmount} to wallet!`);
+                                    setPromoCode("");
+                                    setDiscountPercent(0);
+                                    setRechargeAmount("");
+                                } else {
+                                    toast.error("Payment verification failed.");
+                                }
+                              } catch(e) {
+                                toast.error("Error verifying payment.");
+                              }
+                          },
+                          prefill: {
+                              name: institute?.legalName,
+                              contact: institute?.phoneNumber
+                          },
+                          theme: {
+                              color: "#3399cc"
+                          }
+                      };
+                      
+                      const rzp1 = new (window as any).Razorpay(options);
+                      rzp1.open();
+                    } catch (e) {
+                      toast.error("Payment service is currently unavailable.");
+                    }
                  }}
                  className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer"
                >
-                 Add ₹{planPrice} to Wallet
+                 {(() => {
+                   const finalRechargeAmount = parseFloat(rechargeAmount) || planPrice;
+                   const discountedPrice = finalRechargeAmount - (finalRechargeAmount * discountPercent / 100);
+                   return `Add ₹${finalRechargeAmount} ${discountPercent > 0 ? `(Pay ₹${discountedPrice})` : ''}`;
+                 })()}
                </button>
              </div>
            </div>
@@ -746,7 +812,8 @@ export default function AdminDashboard() {
                        <th className="px-4 py-3 font-medium">Date</th>
                        <th className="px-4 py-3 font-medium">Type</th>
                        <th className="px-4 py-3 font-medium">Description</th>
-                       <th className="px-4 py-3 font-medium text-right">Amount</th>
+                       <th className="px-4 py-3 font-medium text-right">Paid</th>
+                       <th className="px-4 py-3 font-medium text-right">Credited</th>
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-border">
@@ -758,7 +825,13 @@ export default function AdminDashboard() {
                              {tx.type}
                            </span>
                          </td>
-                         <td className="px-4 py-3 text-muted-foreground">{tx.description}</td>
+                         <td className="px-4 py-3 text-muted-foreground">
+                           {tx.description}
+                           {tx.promoCode && <span className="ml-2 px-1.5 py-0.5 bg-secondary rounded text-[10px] text-foreground">Promo: {tx.promoCode}</span>}
+                         </td>
+                         <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-foreground">
+                            {tx.type === 'Recharge' ? `₹${(tx.paidAmount || tx.amount).toFixed(2)}` : '-'}
+                         </td>
                          <td className={`px-4 py-3 whitespace-nowrap text-right font-medium ${tx.amount > 0 ? 'text-emerald-500' : 'text-foreground'}`}>
                            {tx.amount > 0 ? '+' : ''}₹{Math.abs(tx.amount).toFixed(2)}
                          </td>

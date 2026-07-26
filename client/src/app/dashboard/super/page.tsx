@@ -16,6 +16,9 @@ export default function SuperAdminDashboard() {
   const [plans, setPlans] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [promos, setPromos] = useState<any[]>([]);
+  const [newPromoCode, setNewPromoCode] = useState("");
+  const [newPromoDiscount, setNewPromoDiscount] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -84,6 +87,13 @@ export default function SuperAdminDashboard() {
       });
       if (transRes.ok) {
         setTransactions(await transRes.json());
+      }
+      
+      const promosRes = await fetch(`${API_BASE_URL}/api/super/promos`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (promosRes.ok) {
+        setPromos(await promosRes.json());
       }
     } catch (e) {
       console.error('Failed to fetch verifications:', e);
@@ -754,6 +764,104 @@ export default function SuperAdminDashboard() {
           </div>
           
           <div className="bg-card border border-border rounded-lg p-6">
+            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Promo Codes & Discounts</h3>
+            
+            <div className="flex gap-4 mb-6 border-b border-border pb-6">
+              <input 
+                type="text" 
+                placeholder="PROMOCODE" 
+                value={newPromoCode}
+                onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())}
+                className="bg-card border border-input rounded px-3 py-2 text-xs focus:outline-none focus:border-primary w-40 uppercase"
+              />
+              <div className="relative w-32">
+                <input 
+                  type="number" 
+                  placeholder="Discount %" 
+                  value={newPromoDiscount}
+                  onChange={(e) => setNewPromoDiscount(e.target.value)}
+                  className="bg-card border border-input rounded pl-3 pr-8 py-2 text-xs focus:outline-none focus:border-primary w-full"
+                />
+                <span className="absolute right-3 top-1.5 text-xs text-muted-foreground">%</span>
+              </div>
+              <button 
+                onClick={async () => {
+                  if(!newPromoCode || !newPromoDiscount) return toast.error("Fill both fields");
+                  try {
+                    const res = await fetch(`${API_BASE_URL}/api/super/promos`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.token}` },
+                      body: JSON.stringify({ code: newPromoCode, discountPercentage: newPromoDiscount })
+                    });
+                    const data = await res.json();
+                    if(res.ok) {
+                      toast.success(data.message);
+                      setNewPromoCode("");
+                      setNewPromoDiscount("");
+                      const promosRes = await fetch(`${API_BASE_URL}/api/super/promos`, { headers: { Authorization: `Bearer ${session?.token}` } });
+                      if(promosRes.ok) setPromos(await promosRes.json());
+                    } else {
+                      toast.error(data.message);
+                    }
+                  } catch(e) { toast.error("Error creating promo"); }
+                }}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded font-medium text-xs transition-colors"
+              >
+                Create Promo Code
+              </button>
+            </div>
+            
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-secondary/20 text-muted-foreground border-b border-border">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Code</th>
+                    <th className="px-4 py-3 font-medium">Discount</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {promos.map((promo: any) => (
+                    <tr key={promo._id} className="hover:bg-secondary/5 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-foreground">{promo.code}</td>
+                      <td className="px-4 py-3 text-emerald-500 font-medium">{promo.discountPercentage}% OFF</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${promo.isActive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-destructive/10 text-destructive'}`}>
+                          {promo.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button 
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`${API_BASE_URL}/api/super/promos/${promo._id}/toggle`, {
+                                method: 'POST',
+                                headers: { Authorization: `Bearer ${session?.token}` }
+                              });
+                              if(res.ok) {
+                                toast.success("Status updated");
+                                const promosRes = await fetch(`${API_BASE_URL}/api/super/promos`, { headers: { Authorization: `Bearer ${session?.token}` } });
+                                if(promosRes.ok) setPromos(await promosRes.json());
+                              }
+                            } catch(e) { toast.error("Error toggling promo"); }
+                          }}
+                          className={`px-3 py-1.5 rounded text-[10px] font-medium transition-colors ${promo.isActive ? 'bg-destructive/10 text-destructive hover:bg-destructive/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'}`}
+                        >
+                          {promo.isActive ? 'Disable' : 'Enable'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {promos.length === 0 && (
+                     <tr><td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">No promo codes found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Tenant Wallets & Health</h3>
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full text-left text-[11px]">
@@ -803,7 +911,8 @@ export default function SuperAdminDashboard() {
                     <th className="px-4 py-3 font-medium">Tenant</th>
                     <th className="px-4 py-3 font-medium">Type</th>
                     <th className="px-4 py-3 font-medium">Description</th>
-                    <th className="px-4 py-3 font-medium text-right">Amount</th>
+                    <th className="px-4 py-3 font-medium text-right">Paid</th>
+                    <th className="px-4 py-3 font-medium text-right">Credited</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -816,14 +925,20 @@ export default function SuperAdminDashboard() {
                           {tx.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{tx.description}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {tx.description}
+                        {tx.promoCode && <span className="ml-2 px-1.5 py-0.5 bg-secondary rounded text-[10px] text-foreground">Promo: {tx.promoCode}</span>}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-foreground">
+                        ₹{(tx.paidAmount || tx.amount).toFixed(2)}
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right font-medium text-emerald-500">
                         +₹{Math.abs(tx.amount).toFixed(2)}
                       </td>
                     </tr>
                   ))}
                   {transactions.filter((tx: any) => tx.type === 'Recharge').length === 0 && (
-                     <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">No recharge transactions found.</td></tr>
+                     <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No recharge transactions found.</td></tr>
                   )}
                 </tbody>
               </table>

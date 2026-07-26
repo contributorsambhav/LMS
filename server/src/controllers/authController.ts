@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { Institute } from '../models/Institute';
 import { User } from '../models/User';
 import { Verification } from '../models/Verification';
+import { PromoCode } from '../models/PromoCode';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
@@ -151,10 +152,19 @@ export const login = async (req: Request, res: Response) => {
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
-    const { amount } = req.body;
+    const { amount, promoCode } = req.body;
     
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       return res.status(500).json({ message: 'Razorpay keys not configured' });
+    }
+
+    let finalAmount = amount;
+    if (promoCode) {
+        const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+        if (promo) {
+            const discount = (promo.discountPercentage / 100) * amount;
+            finalAmount = amount - discount;
+        }
     }
 
     const instance = new Razorpay({
@@ -163,9 +173,13 @@ export const createOrder = async (req: Request, res: Response) => {
     });
 
     const options = {
-      amount: amount * 100, // amount in smallest currency unit
+      amount: finalAmount * 100, // amount in smallest currency unit
       currency: "INR",
       receipt: "receipt_order_" + Date.now(),
+      notes: {
+        originalAmount: amount,
+        promoCode: promoCode || ''
+      }
     };
 
     const order = await instance.orders.create(options);

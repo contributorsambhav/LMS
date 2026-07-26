@@ -6,6 +6,7 @@ import { User } from "../models/User";
 import { Enrollment } from "../models/Enrollment";
 import { Institute } from "../models/Institute";
 import { Transaction } from "../models/Transaction";
+import { PromoCode } from "../models/PromoCode";
 import crypto from "crypto";
 
 // Helper to generate unique 6-character alphanumeric codes
@@ -431,7 +432,7 @@ export const verifyRecharge = async (req: AuthenticatedRequest, res: Response) =
       return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
     }
 
-    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, amount } = req.body;
+    const { razorpay_payment_id, razorpay_order_id, razorpay_signature, amount, paidAmount, promoCode } = req.body;
     
     if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature || !amount) {
        return res.status(400).json({ message: 'Payment details or amount missing.' });
@@ -458,6 +459,8 @@ export const verifyRecharge = async (req: AuthenticatedRequest, res: Response) =
     await Transaction.create({
       instituteId: institute._id,
       amount: Number(amount),
+      paidAmount: paidAmount ? Number(paidAmount) : Number(amount),
+      promoCode: promoCode || null,
       type: "Recharge",
       description: `Wallet recharge via Razorpay (Order: ${razorpay_order_id})`
     });
@@ -481,5 +484,24 @@ export const getTransactions = async (req: AuthenticatedRequest, res: Response) 
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ message: "Failed to fetch transactions", error });
+  }
+};
+
+export const validatePromoCode = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ message: "Promo code is required." });
+    }
+
+    const promo = await PromoCode.findOne({ code: code.toUpperCase(), isActive: true });
+    if (!promo) {
+      return res.status(404).json({ message: "Invalid or inactive promo code." });
+    }
+
+    res.status(200).json({ message: "Promo code applied successfully", discountPercentage: promo.discountPercentage });
+  } catch (error) {
+    console.error("Error validating promo code:", error);
+    res.status(500).json({ message: "Failed to validate promo code", error });
   }
 };
