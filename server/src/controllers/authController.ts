@@ -552,3 +552,41 @@ export const validatePromoCode = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal server error." });
   }
 };
+
+export const createOnboardingOrder = async (req: Request, res: Response) => {
+  try {
+    const { promoCode } = req.body;
+    let amountToCharge = 500; // base price in INR
+
+    if (promoCode) {
+      const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+      if (promo) {
+        const discountAmount = (amountToCharge * promo.discountPercentage) / 100;
+        amountToCharge = amountToCharge - discountAmount;
+      }
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID || "",
+      key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+    });
+
+    const options = {
+      amount: Math.round(amountToCharge * 100), 
+      currency: "INR",
+      receipt: `rcpt_onboard_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    if (!order) return res.status(500).json({ message: "Error creating Razorpay order" });
+
+    return res.status(200).json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency
+    });
+  } catch (error) {
+    console.error("Razorpay onboarding order error:", error);
+    return res.status(500).json({ message: "Failed to create onboarding payment order." });
+  }
+};

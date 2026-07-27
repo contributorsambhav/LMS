@@ -96,6 +96,17 @@ function SignupFormContent() {
     }
   };
 
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) return resolve(true);
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   const handleSignup = async () => {
     setLoading(true);
     setValidationError('');
@@ -123,7 +134,61 @@ function SignupFormContent() {
       query += `&instituteId=${encodeURIComponent(instituteId)}&legalName=${encodeURIComponent(legalName.trim())}&phoneNumber=${encodeURIComponent(phoneNumber.trim())}&address=${encodeURIComponent(address.trim())}`;
     }
 
-    router.push(`/api/auth/google?${query}&action=signup`);
+    if (selectedRole === 'admin') {
+      const res = await loadRazorpay();
+      if (!res) {
+        setValidationError("Razorpay SDK failed to load. Are you online?");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const orderRes = await fetch(`${API_BASE_URL}/api/auth/onboarding-order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ promoCode: promoCode.trim() })
+        });
+        const orderData = await orderRes.json();
+        
+        if (!orderRes.ok) throw new Error(orderData.message || 'Failed to create order');
+
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_THoeY1eXASp32Z',
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: "LumenLMS",
+          description: "Platform Onboarding Fee",
+          order_id: orderData.orderId,
+          handler: function (response: any) {
+            query += `&razorpay_payment_id=${response.razorpay_payment_id}&razorpay_order_id=${response.razorpay_order_id}&razorpay_signature=${response.razorpay_signature}`;
+            router.push(`/api/auth/google?${query}&action=signup`);
+          },
+          prefill: {
+            name: legalName,
+            contact: phoneNumber
+          },
+          theme: {
+            color: "#6d28d9"
+          },
+          modal: {
+            ondismiss: function() {
+              setLoading(false);
+            }
+          }
+        };
+        const paymentObject = new (window as any).Razorpay(options);
+        paymentObject.on('payment.failed', function (response: any) {
+          setValidationError("Payment failed. Please try again.");
+          setLoading(false);
+        });
+        paymentObject.open();
+      } catch (err: any) {
+        setValidationError("Payment initialization failed: " + err.message);
+        setLoading(false);
+      }
+    } else {
+      router.push(`/api/auth/google?${query}&action=signup`);
+    }
   };
 
 
@@ -393,7 +458,7 @@ function SignupFormContent() {
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
                 </svg>
               )}
-              Sign Up with Google
+              {selectedRole === 'admin' ? `Pay ₹${500 - (500 * (promoDiscount || 0) / 100)} & Sign Up with Google` : 'Sign Up with Google'}
             </button>
           </div>
 

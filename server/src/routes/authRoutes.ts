@@ -11,7 +11,8 @@ import {
   updateFacultyAffiliation,
   getMe,
   getPublicPlans,
-  validatePromoCode
+  validatePromoCode,
+  createOnboardingOrder
 } from "../controllers/authController";
 import { authenticate } from "../middleware/auth";
 
@@ -21,6 +22,7 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/oauth-login", oauthLogin);
 router.post("/validate-promo", validatePromoCode);
+router.post("/onboarding-order", createOnboardingOrder);
 router.post("/super-login", superCodeLogin);
 router.get("/active-institutes", getActiveInstitutes);
 router.get("/plans", getPublicPlans);

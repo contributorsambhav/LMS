@@ -9,7 +9,7 @@ export interface IInstitute extends Document {
   email: string;
   adminId: Schema.Types.ObjectId;
   status: "Pending" | "Active" | "Suspended";
-  billingPlan: "Basic" | "Premium" | "Enterprise" | "Custom";
+  billingPlan: string;
   zoomAccountId?: string;
   zoomClientId?: string;
   zoomClientSecret?: string;
@@ -39,7 +39,6 @@ const InstituteSchema = new Schema<IInstitute>(
     },
     billingPlan: {
       type: String,
-      enum: ["Basic", "Premium", "Enterprise", "Custom"],
       default: "Basic"
     },
     zoomAccountId: { type: String, trim: true },
