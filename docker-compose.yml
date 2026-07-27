@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  main-server:
+    build: ./server
+    container_name: lumen-server
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./server/.env
+    restart: always
+    networks:
+      - lumen-net
+
+  doubt-service:
+    build: ./doubt-service
+    container_name: lumen-doubt-service
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./doubt-service/.env
+    restart: always
+    networks:
+      - lumen-net
+
+  stream-service:
+    build: ./stream-service
+    container_name: lumen-stream-service
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./stream-service/.env
+    restart: always
+    networks:
+      - lumen-net
+
+networks:
+  lumen-net:
+    driver: bridge
