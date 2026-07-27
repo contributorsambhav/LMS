@@ -227,7 +227,7 @@ export const deleteInstitute = async (req: AuthenticatedRequest, res: Response) 
     const courseIds = courses.map(c => c._id);
 
     // 2. Trigger R2 Asset Deletion for each course via stream-service
-    const streamServiceUrl = process.env.STREAM_SERVICE_URL || "http://localhost:4000";
+    const streamServiceUrl = process.env.STREAM_SERVICE_URL as string;
     for (const courseId of courseIds) {
       try {
         await fetch(`${streamServiceUrl}/api/upload/course/${id}/${courseId}`, {

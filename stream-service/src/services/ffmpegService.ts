@@ -22,6 +22,7 @@ export const processVideo = (inputPath: string, outputDir: string, videoId: stri
         "-b:a 128k",
         "-ac 2",
         "-ar 44100",
+        "-threads 1",
       ]);
 
     // 1. Original Dimension Rendition
@@ -127,6 +128,7 @@ export const processLowerQualities = (inputPath: string, outputDir: string, vide
         "-b:a 128k",
         "-ac 2",
         "-ar 44100",
+        "-threads 1",
       ]);
 
     lowerRenditions.forEach((r, index) => {

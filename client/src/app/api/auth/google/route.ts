@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const nextAuthUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const nextAuthUrl = process.env.NEXTAUTH_URL as string;
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(new URL(`/login?error=no_credentials`, req.url));

@@ -1153,7 +1153,8 @@ export default function CourseModals(props: any) {
                                 
                                 try {
                                   toast.info('Uploading attachment...', { autoClose: 1000 });
-                                  const res = await fetch('http://localhost:4000/api/upload/document', {
+                                  const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+                                  const res = await fetch(`${streamServiceUrl}/api/upload/document`, {
                                     method: 'POST',
                                     headers: { Authorization: `Bearer ${session.token}` },
                                     body: formData

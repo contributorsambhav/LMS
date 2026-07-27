@@ -543,7 +543,8 @@ export default function CourseDetailsPage() {
 
       if (materialFile) {
         // Step 1: Upload PDF to stream-service
-        const uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/document', materialFile, session.token, 'document', {
+        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/document`, materialFile, session.token, 'document', {
           instituteId: courseData.instituteId,
           courseId
         });
@@ -799,7 +800,9 @@ export default function CourseDetailsPage() {
 
       if (lessonFile) {
         // Step 1: Upload to stream-service
-        uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/video', lessonFile, session.token, 'video', {
+        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        console.log("DEBUG: Using Stream Service URL:", streamServiceUrl);
+        uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/video`, lessonFile, session.token, 'video', {
           resolution: '1080p',
           instituteId: courseData.instituteId,
           courseId
@@ -841,7 +844,8 @@ export default function CourseDetailsPage() {
       // Step 3: Wait for transcoder to finish via SSE so we can show progress in UI
       if (uploadRes && uploadRes.videoId) {
          await new Promise((resolve, reject) => {
-           const source = new EventSource(`http://localhost:4000/api/upload/video/status/${uploadRes.videoId}`);
+           const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+           const source = new EventSource(`${streamServiceUrl}/api/upload/video/status/${uploadRes.videoId}`);
            source.onmessage = (event) => {
              const data = JSON.parse(event.data);
              if (data.stage === 'processing_original') {
@@ -1244,7 +1248,8 @@ export default function CourseDetailsPage() {
       if (assignmentAttachmentFile) {
         setUploadStage('Uploading attachment...');
         setUploadProgress(0);
-        const uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/document', assignmentAttachmentFile, session.token, 'document', {
+        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/document`, assignmentAttachmentFile, session.token, 'document', {
           instituteId: courseData.instituteId,
           courseId
         });
@@ -1345,7 +1350,8 @@ export default function CourseDetailsPage() {
     setUploadProgress(0);
     try {
       // Step 1: Upload PDF to stream-service
-      const uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/document', assignmentFile, session.token, 'document', {
+      const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+      const uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/document`, assignmentFile, session.token, 'document', {
         instituteId: courseData?.instituteId || '',
         courseId
       });

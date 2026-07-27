@@ -31,7 +31,7 @@ interface Message {
   createdAt: string;
 }
 
-const DOUBT_SERVICE_URL = process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL || "http://localhost:5001";
+const DOUBT_SERVICE_URL = process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL as string;
 
 export default function CourseDoubts({ courseId }: { courseId: string }) {
   const session = useUser();

@@ -964,7 +964,7 @@ export const deleteCourse = async (req: AuthenticatedRequest, res: Response) => 
 
     // Clean up all video assets from Cloudflare R2 via stream-service
     try {
-      const streamServiceUrl = process.env.STREAM_SERVICE_URL || "http://localhost:4000";
+      const streamServiceUrl = process.env.STREAM_SERVICE_URL as string;
       await fetch(`${streamServiceUrl}/api/upload/course/${instituteId}/${courseId}`, {
         method: "DELETE"
       });

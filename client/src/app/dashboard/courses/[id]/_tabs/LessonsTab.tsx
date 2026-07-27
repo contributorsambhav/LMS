@@ -75,7 +75,8 @@ export default function LessonsTab({
 
     setOptimizing(true);
     try {
-      const res = await fetch("http://localhost:4000/api/upload/video/optimize", {
+      const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+      const res = await fetch(`${streamServiceUrl}/api/upload/video/optimize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -91,7 +92,8 @@ export default function LessonsTab({
       });
       if (res.ok) {
         setProgressMsg("Initializing...");
-        const source = new EventSource(`http://localhost:4000/api/upload/video/status/${videoId}`);
+        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const source = new EventSource(`${streamServiceUrl}/api/upload/video/status/${videoId}`);
         source.onmessage = (event) => {
           const data = JSON.parse(event.data);
           if (data.stage === "complete") {
