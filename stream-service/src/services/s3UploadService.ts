@@ -86,7 +86,7 @@ export const uploadDirectlyToS3 = async (localFilePath: string, s3Key: string, m
   try {
     await s3Client.send(new PutObjectCommand(uploadParams));
     console.log(`Uploaded ${s3Key} successfully to S3`);
-    const cdnBase = process.env.R2_PUBLIC_DEV_URL || "https://cdn.lumenlms.com";
+    const cdnBase = process.env.R2_PUBLIC_URL || "https://cdn.lumenlms.com";
     return `${cdnBase}/${s3Key}`;
   } catch (err) {
     console.error(`Error uploading ${s3Key}:`, err);

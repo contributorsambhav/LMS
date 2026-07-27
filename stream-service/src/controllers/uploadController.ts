@@ -23,7 +23,7 @@ export const uploadVideo = async (req: Request, res: Response) => {
     const videoId = path.basename(req.file.filename, path.extname(req.file.filename));
     
     const s3Prefix = `institutes/${instituteId}/courses/${courseId}/videos/${videoId}`;
-    const cdnBase = process.env.R2_PUBLIC_DEV_URL || "https://cdn.lumenlms.com";
+    const cdnBase = process.env.R2_PUBLIC_URL || "https://cdn.lumenlms.com";
     const predictedMasterUrl = `${cdnBase}/${s3Prefix}/master.m3u8`;
 
     // We start processing asynchronously and return a 202 Accepted.
@@ -70,7 +70,7 @@ async function processVideoInBackground(inputPath: string, videoId: string, inst
     
     progressStore[videoId] = { stage: "complete", percent: 100 };
 
-    const cdnBase = process.env.R2_PUBLIC_DEV_URL || "https://cdn.lumenlms.com";
+    const cdnBase = process.env.R2_PUBLIC_URL || "https://cdn.lumenlms.com";
     console.log(`[${videoId}] Upload to S3 complete. URL: ${cdnBase}/${s3Prefix}/master.m3u8`);
     
     // Webhook call to main backend to save the video URL can be placed here!
