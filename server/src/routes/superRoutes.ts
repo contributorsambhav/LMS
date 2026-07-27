@@ -9,15 +9,19 @@ import {
   updateInstituteBilling,
   updateInstituteStatus,
   deleteInstitute,
+  updateInstituteWallet,
   getPlans,
+  createPlan,
   updatePlan,
+  deletePlan,
   getStudents,
   getStudentDetails,
   deleteUser,
   getGlobalTransactions,
   getPromoCodes,
   createPromoCode,
-  togglePromoCode
+  togglePromoCode,
+  getInstituteStorage
 } from "../controllers/superController";
 
 import { Router } from "express";
@@ -31,10 +35,14 @@ router.use(checkRole(["SuperAdmin"]));
 router.get("/institutes", getInstitutes);
 router.post("/institutes/:id/status", updateInstituteStatus);
 router.post("/institutes/:id/billing", updateInstituteBilling);
+router.post("/institutes/:id/wallet", updateInstituteWallet);
+router.get("/institutes/:id/storage", getInstituteStorage);
 router.delete("/institutes/:id", deleteInstitute);
 
 router.get("/plans", getPlans);
+router.post("/plans", createPlan);
 router.patch("/plans/:id", updatePlan);
+router.delete("/plans/:id", deletePlan);
 router.get("/transactions", getGlobalTransactions);
 
 // Promo Codes

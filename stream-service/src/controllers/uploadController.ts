@@ -28,10 +28,12 @@ export const uploadVideo = async (req: Request, res: Response) => {
 
     // We start processing asynchronously and return a 202 Accepted.
     // In a production system with heavy load, we would push this to a Redis Queue.
+    const fileSize = req.file.size;
     res.status(202).json({ 
       message: "Video upload accepted and is now processing.",
       videoId: videoId,
-      masterUrl: predictedMasterUrl
+      masterUrl: predictedMasterUrl,
+      sizeInBytes: fileSize
     });
 
     // Fire and forget (processing in background)

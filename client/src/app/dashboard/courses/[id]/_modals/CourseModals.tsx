@@ -157,6 +157,8 @@ export default function CourseModals(props: any) {
     setAssignmentTotalMarks,
     assignmentAttachmentUrl,
     setAssignmentAttachmentUrl,
+    assignmentAttachmentFile,
+    setAssignmentAttachmentFile,
     assignmentError,
     setAssignmentError,
     assignmentSuccess,
@@ -1137,18 +1139,56 @@ export default function CourseModals(props: any) {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[9px] uppercase tracking-wider text-muted-foreground">Attachment URL (Optional - Image / PDF Link)</label>
-                        <input
-                          type="url"
-                          value={q.attachmentUrl || ''}
-                          onChange={(e) => {
-                            const newQ = [...quizQuestions];
-                            newQ[idx].attachmentUrl = e.target.value;
-                            setQuizQuestions(newQ);
-                          }}
-                          className="w-full rounded border border-border bg-background px-2 py-1 text-[10px] text-foreground focus:outline-none"
-                          placeholder="https://example.com/image.png"
-                        />
+                        <label className="text-[9px] uppercase tracking-wider text-muted-foreground">Attachment (File Upload or URL)</label>
+                        <div className="flex flex-col gap-2">
+                          <input
+                            type="file"
+                            onChange={async (e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                const file = e.target.files[0];
+                                const formData = new FormData();
+                                formData.append('document', file);
+                                formData.append('instituteId', courseData?.instituteId || '');
+                                formData.append('courseId', courseData?._id || '');
+                                
+                                try {
+                                  toast.info('Uploading attachment...', { autoClose: 1000 });
+                                  const res = await fetch('http://localhost:4000/api/upload/document', {
+                                    method: 'POST',
+                                    headers: { Authorization: `Bearer ${session.token}` },
+                                    body: formData
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok && data.url) {
+                                    const newQ = [...quizQuestions];
+                                    newQ[idx].attachmentUrl = data.url;
+                                    setQuizQuestions(newQ);
+                                    toast.success('Attachment uploaded!');
+                                  } else {
+                                    toast.error(data.message || 'Upload failed');
+                                  }
+                                } catch (err) {
+                                  toast.error('Upload error');
+                                }
+                              }
+                            }}
+                            className="w-full text-[10px] file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-[10px] file:font-semibold file:text-primary hover:file:bg-primary/20"
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">OR URL:</span>
+                            <input
+                              type="url"
+                              value={q.attachmentUrl || ''}
+                              onChange={(e) => {
+                                const newQ = [...quizQuestions];
+                                newQ[idx].attachmentUrl = e.target.value;
+                                setQuizQuestions(newQ);
+                              }}
+                              className="w-full rounded border border-border bg-background px-2 py-1 text-[10px] text-foreground focus:outline-none"
+                              placeholder="https://example.com/image.png"
+                            />
+                          </div>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1748,14 +1788,38 @@ export default function CourseModals(props: any) {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Attachment URL (Optional Image/PDF Link)</label>
-                <input 
-                  type="url" 
-                  value={assignmentAttachmentUrl}
-                  onChange={(e) => setAssignmentAttachmentUrl(e.target.value)}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none"
-                  placeholder="https://example.com/reference.pdf"
-                />
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Attachment (File Upload or URL)</label>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="file" 
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setAssignmentAttachmentFile(e.target.files[0]);
+                          setAssignmentAttachmentUrl(''); // Clear URL if file selected
+                        }
+                      }}
+                      className="w-full text-[10px] file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-[10px] file:font-semibold file:text-primary hover:file:bg-primary/20"
+                    />
+                    {assignmentAttachmentFile && (
+                      <button type="button" onClick={() => setAssignmentAttachmentFile(null)} className="text-destructive text-[10px]">Clear File</button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">OR URL:</span>
+                    <input 
+                      type="url" 
+                      value={assignmentAttachmentUrl}
+                      onChange={(e) => {
+                        setAssignmentAttachmentUrl(e.target.value);
+                        if (e.target.value) setAssignmentAttachmentFile(null); // Clear file if URL entered
+                      }}
+                      disabled={!!assignmentAttachmentFile}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none disabled:opacity-50"
+                      placeholder="https://example.com/reference.pdf"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1.5">

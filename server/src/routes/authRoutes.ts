@@ -10,7 +10,8 @@ import {
   getPendingFacultyAffiliations,
   updateFacultyAffiliation,
   getMe,
-  createOrder
+  getPublicPlans,
+  validatePromoCode
 } from "../controllers/authController";
 import { authenticate } from "../middleware/auth";
 
@@ -19,9 +20,10 @@ const router = Router();
 router.post("/register", register);
 router.post("/login", login);
 router.post("/oauth-login", oauthLogin);
-router.post("/create-order", createOrder);
+router.post("/validate-promo", validatePromoCode);
 router.post("/super-login", superCodeLogin);
 router.get("/active-institutes", getActiveInstitutes);
+router.get("/plans", getPublicPlans);
 router.put("/update-institute", authenticate, updateInstitute);
 router.patch("/update-profile", authenticate, updateProfile);
 router.get("/me", authenticate, getMe);

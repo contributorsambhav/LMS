@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, AlertTriangle, BookOpen, Building, CheckCircle2, CreditCard, Database, Mail, Server, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, BookOpen, Building, CheckCircle2, CreditCard, Database, Mail, Server, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import React, { useEffect, useState } from 'react';
 
@@ -21,6 +21,10 @@ export default function SuperAdminDashboard() {
   const [newPromoDiscount, setNewPromoDiscount] = useState("");
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showStorageModal, setShowStorageModal] = useState<string | null>(null);
+  const [storageData, setStorageData] = useState<{videoBytes: number, documentBytes: number} | null>(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'tenant' | 'student' | 'plan', id: string } | null>(null);
 
   // Student Details Modal
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -31,9 +35,12 @@ export default function SuperAdminDashboard() {
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [feedbackType, setFeedbackType] = useState<'success' | 'error' | ''>('');
 
-  // Edit Plan State
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [planForm, setPlanForm] = useState<any>({});
+  
+  // Create Plan State
+  const [showCreatePlanModal, setShowCreatePlanModal] = useState(false);
+  const [newPlanForm, setNewPlanForm] = useState({ planCode: '', name: '', price: '' });
 
   const fetchInstitutes = async (token: string) => {
     try {
@@ -74,13 +81,6 @@ export default function SuperAdminDashboard() {
         setPlans(await plansRes.json());
       }
 
-      // Fetch all students
-      const studentsRes = await fetch(`${API_BASE_URL}/api/super/students`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (studentsRes.ok) {
-        setStudents(await studentsRes.json());
-      }
       
       const transRes = await fetch(`${API_BASE_URL}/api/super/transactions`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -100,11 +100,25 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const fetchStudents = async (token: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/super/students`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setStudents(await res.json());
+      }
+    } catch (e) {
+      console.error('Failed to fetch students:', e);
+    }
+  };
+
   useEffect(() => {
     const token = session?.token;
     if (token) {
       fetchInstitutes(token);
       fetchVerifications(token);
+      fetchStudents(token);
     } else {
       setLoading(false);
     }
@@ -169,6 +183,44 @@ export default function SuperAdminDashboard() {
     const tabParam = searchParams?.get('tab') || 'overview';
     setActiveTab(tabParam);
   }, [searchParams?.toString()]);
+
+  const handleAdjustWallet = async (instId: string) => {
+    const amountStr = window.prompt("Enter amount to adjust (use negative to deduct):");
+    if (!amountStr) return;
+    const amount = Number(amountStr);
+    if (isNaN(amount)) {
+      toast("Invalid amount");
+      return;
+    }
+
+    const reason = window.prompt("Reason for adjustment:");
+    
+    const token = session?.token;
+    if (!token) return;
+
+    setUpdatingId(instId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/super/institutes/${instId}/wallet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount, reason })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast(data.message);
+        await fetchInstitutes(token);
+        // Refresh transactions to show the new manual adjustment
+        const txRes = await fetch(`${API_BASE_URL}/api/super/transactions`, { headers: { Authorization: `Bearer ${token}` } });
+        if(txRes.ok) setTransactions(await txRes.json());
+      } else {
+        toast(data.message || 'Failed to adjust wallet');
+      }
+    } catch (error) {
+      toast('Network error');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   const handleStatusChange = async (instId: string, currentStatus: string) => {
     const token = session?.token;
@@ -244,9 +296,7 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleDeleteTenant = async (instId: string) => {
-    if (!window.confirm('WARNING: Are you sure you want to permanently delete this tenant, its configurations, and all its users? This action cannot be undone.')) return;
-    
+  const executeDeleteTenant = async (instId: string) => {
     const token = session?.token;
     if (!token) return;
 
@@ -266,6 +316,7 @@ export default function SuperAdminDashboard() {
         setFeedbackType('success');
         toast(data.message || 'Tenant completely deleted.');
         await fetchInstitutes(token);
+        await fetchStudents(token);
       } else {
         setFeedbackType('error');
         toast(data.message || 'Failed to delete tenant.');
@@ -278,9 +329,99 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const fetchStorageData = async (instId: string) => {
+    const token = session?.token;
+    if (!token) return;
+    setStorageLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/super/institutes/${instId}/storage`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setStorageData(await res.json());
+      } else {
+        toast('Failed to fetch storage data.');
+      }
+    } catch (e) {
+      toast('Network error fetching storage.');
+    } finally {
+      setStorageLoading(false);
+    }
+  };
+  const submitNewPlan = async () => {
+    const token = session?.token;
+    if (!token) return;
+    
+    const { planCode, name, price } = newPlanForm;
+    if (!planCode || !name || !price) {
+      toast('Please fill out all fields.');
+      return;
+    }
+    
+    setUpdatingId('create-plan');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/super/plans`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ planCode, name, price })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast(data.message);
+        setShowCreatePlanModal(false);
+        setNewPlanForm({ planCode: '', name: '', price: '' });
+        const plansRes = await fetch(`${API_BASE_URL}/api/super/plans`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (plansRes.ok) setPlans(await plansRes.json());
+      } else {
+        toast(data.message || 'Failed to create plan');
+      }
+    } catch (e) {
+      toast("Error creating plan.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const executeDeletePlan = async (planId: string) => {
+    const token = session?.token;
+    if (!token) return;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/super/plans/${planId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast("Plan deleted successfully");
+        const plansRes = await fetch(`${API_BASE_URL}/api/super/plans`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (plansRes.ok) setPlans(await plansRes.json());
+      } else {
+        const data = await res.json();
+        toast(data.message || 'Failed to delete plan');
+      }
+    } catch (error) {
+      toast('Network error');
+    }
+  };
+
+
   const handleUpdatePlan = async () => {
     const token = session?.token;
     if (!token || !editingPlanId) return;
+
+    // Convert string inputs back to numbers if needed for storage and students
+    const payload = {
+      ...planForm,
+      maxStorageGB: Number(planForm.maxStorageGB) || 0,
+      maxStudents: Number(planForm.maxStudents) || 0
+    };
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/super/plans/${editingPlanId}`, {
@@ -289,7 +430,7 @@ export default function SuperAdminDashboard() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(planForm)
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (res.ok) {
@@ -306,10 +447,7 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleDeleteStudent = async (e: React.MouseEvent, studentId: string) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to completely delete this student?')) return;
-    
+  const executeDeleteStudent = async (studentId: string) => {
     const token = session?.token;
     if (!token) return;
 
@@ -327,7 +465,7 @@ export default function SuperAdminDashboard() {
         setFeedbackType('success');
         toast(data.message || 'Student deleted.');
         if (selectedStudent?.student?._id === studentId) setSelectedStudent(null);
-        await fetchInstitutes(token);
+        await fetchStudents(token);
       } else {
         setFeedbackType('error');
         toast(data.message || 'Failed to delete student.');
@@ -338,6 +476,15 @@ export default function SuperAdminDashboard() {
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const { type, id } = deleteConfirm;
+    setDeleteConfirm(null);
+    if (type === 'tenant') await executeDeleteTenant(id);
+    else if (type === 'student') await executeDeleteStudent(id);
+    else if (type === 'plan') await executeDeletePlan(id);
   };
 
   const handleViewStudentDetails = async (studentId: string) => {
@@ -394,8 +541,7 @@ export default function SuperAdminDashboard() {
           { id: 'overview', label: 'Overview' },
           { id: 'tenants', label: `Tenants Management (${institutes.length})` },
           { id: 'students', label: `Global Students (${students.length})` },
-          { id: 'billing', label: 'Billing Plans' },
-          { id: 'health', label: 'Diagnostics' }
+          { id: 'billing', label: 'Billing Plans' }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -522,37 +668,6 @@ export default function SuperAdminDashboard() {
                 </div>
               )}
             </div>
-
-            {/* Diagnostics system logs */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">System Logs</h3>
-              </div>
-
-              <div className="bg-secondary/15 border border-border rounded-lg p-5 font-mono text-[10px] space-y-4 max-h-[350px] overflow-y-auto text-muted-foreground">
-                <div className="border-b border-border pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground/60">11:51:20</span>
-                    <span className="font-semibold text-primary">[INFO]</span>
-                  </div>
-                  <p className="mt-1 text-foreground leading-normal">SuperAdmin authenticated via Secure code successfully.</p>
-                </div>
-                <div className="border-b border-border pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground/60">11:48:02</span>
-                    <span className="font-semibold text-primary">[INFO]</span>
-                  </div>
-                  <p className="mt-1 text-foreground leading-normal">Database indexes verified. Course join keys active.</p>
-                </div>
-                <div className="border-b border-border pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground/60">11:32:15</span>
-                    <span className="font-semibold text-amber-500">[WARN]</span>
-                  </div>
-                  <p className="mt-1 text-foreground leading-normal">Google OAuth configuration loaded. Local Dev Sandbox active.</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
@@ -578,7 +693,8 @@ export default function SuperAdminDashboard() {
                     <th className="pb-3 pr-4">Admin Email</th>
                     <th className="pb-3 pr-4">Billing Plan</th>
                     <th className="pb-3 pr-4">Course Load</th>
-                    <th className="pb-3 pr-4">Total Users</th>
+                    <th className="pb-3 pr-4">Users Breakdown</th>
+                    <th className="pb-3 pr-4">Storage Usage</th>
                     <th className="pb-3 pr-4">Status</th>
                     <th className="pb-3 text-right">Action Gate</th>
                   </tr>
@@ -601,7 +717,29 @@ export default function SuperAdminDashboard() {
                         </select>
                       </td>
                       <td className="py-4 font-mono text-primary pr-4">{inst.usage.courses}</td>
-                      <td className="py-4 text-muted-foreground pr-4">{inst.usage.faculty + inst.usage.students}</td>
+                      <td className="py-4 pr-4">
+                        <details className="cursor-pointer group">
+                          <summary className="text-muted-foreground font-semibold hover:text-foreground outline-none">
+                            {inst.usage.faculty + inst.usage.students + 1} Total
+                          </summary>
+                          <div className="mt-2 pl-2 border-l-2 border-primary/30 flex flex-col gap-1 text-[10px] text-muted-foreground">
+                            <span>{inst.usage.students} Students</span>
+                            <span>{inst.usage.faculty} Faculty</span>
+                            <span>1 Admin</span>
+                          </div>
+                        </details>
+                      </td>
+                      <td className="py-4 pr-4">
+                        <button 
+                          onClick={() => {
+                            setShowStorageModal(inst.id);
+                            setStorageData(null);
+                          }}
+                          className="rounded-md border border-border px-3 py-1 bg-card hover:bg-secondary/20 transition-colors text-xs font-medium text-muted-foreground cursor-pointer"
+                        >
+                          Check Storage
+                        </button>
+                      </td>
                       <td className="py-4 pr-4">
                         <span className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
                           inst.status === 'Active' 
@@ -628,7 +766,7 @@ export default function SuperAdminDashboard() {
                           </button>
                           <button 
                             disabled={updatingId === inst.id} 
-                            onClick={() => handleDeleteTenant(inst.id)} 
+                            onClick={() => setDeleteConfirm({ type: 'tenant', id: inst.id })} 
                             className="rounded-md px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 cursor-pointer"
                           >
                             Delete
@@ -673,7 +811,7 @@ export default function SuperAdminDashboard() {
                     <tr key={student._id} onClick={() => handleViewStudentDetails(student._id)} className="hover:bg-secondary/20 transition-colors cursor-pointer group">
                       <td className="py-4 font-semibold text-foreground pr-4 group-hover:text-primary transition-colors">{student.name}</td>
                       <td className="py-4 text-muted-foreground pr-4">{student.email}</td>
-                      <td className="py-4 text-muted-foreground pr-4">{student.instituteId?.name || 'Independent Learner'}</td>
+                      <td className="py-4 text-muted-foreground pr-4">{student.instituteId?.name || 'Unknown Institute'}</td>
                       <td className="py-4 pr-4">
                         <span className={`rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
                           student.status === 'Approved' 
@@ -686,7 +824,7 @@ export default function SuperAdminDashboard() {
                       <td className="py-4 text-right">
                         <button 
                           disabled={updatingId === student._id} 
-                          onClick={(e) => handleDeleteStudent(e, student._id)} 
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ type: 'student', id: student._id }); }} 
                           className="rounded-md bg-destructive text-destructive-foreground hover:bg-destructive/90 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer"
                         >
                           Delete
@@ -708,7 +846,12 @@ export default function SuperAdminDashboard() {
       {activeTab === 'billing' && (
         <div className="space-y-8">
           <div className="bg-card border border-border rounded-lg p-6">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-4">Pricing Plans (Monthly Rates)</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pricing Plans (Monthly Rates)</h3>
+              <button onClick={() => setShowCreatePlanModal(true)} className="bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 px-3 py-1.5 rounded text-[10px] font-semibold transition-colors cursor-pointer">
+                + Create New Plan
+              </button>
+            </div>
             {plans.length === 0 ? (
               <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">Loading live plans from database...</div>
             ) : (
@@ -718,15 +861,26 @@ export default function SuperAdminDashboard() {
                     {editingPlanId === plan._id ? (
                       <div className="space-y-4">
                         <div className="flex items-center justify-between pb-2 border-b border-border">
-                          <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">{plan.name}</h4>
+                          <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground">Editing: {plan.name}</h4>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground uppercase">Plan Name</label>
+                          <input type="text" value={planForm.name || ''} onChange={e => setPlanForm({...planForm, name: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
                         </div>
                         <div>
                           <label className="text-[10px] font-medium text-muted-foreground uppercase">Price</label>
                           <input type="text" value={planForm.price || ''} onChange={e => setPlanForm({...planForm, price: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
                         </div>
-                        <div>
-                          <label className="text-[10px] font-medium text-muted-foreground uppercase">API Limit</label>
-                          <input type="text" value={planForm.apiLimit || ''} onChange={e => setPlanForm({...planForm, apiLimit: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase">Max Users</label>
+                            <input type="number" value={planForm.maxStudents || ''} onChange={e => setPlanForm({...planForm, maxStudents: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-medium text-muted-foreground uppercase">Max Storage (GB)</label>
+                            <input type="number" value={planForm.maxStorageGB || ''} onChange={e => setPlanForm({...planForm, maxStorageGB: e.target.value})} className="w-full bg-card border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" />
+                          </div>
                         </div>
                         <div>
                           <label className="text-[10px] font-medium text-muted-foreground uppercase">Details</label>
@@ -746,15 +900,21 @@ export default function SuperAdminDashboard() {
                           </div>
 
                           <p className="text-2xl font-semibold text-foreground">{plan.price}</p>
-                          <p className="text-xs text-muted-foreground">
-                            API limits configuration: <strong className="text-foreground font-medium">{plan.apiLimit}</strong>
-                          </p>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p>Max Users: <strong className="text-foreground font-medium">{plan.maxStudents || 'Unlimited'}</strong></p>
+                            <p>Max Storage: <strong className="text-foreground font-medium">{plan.maxStorageGB || 'Unlimited'} GB</strong></p>
+                          </div>
 
                           <div className="h-px bg-border my-4" />
                           <p className="text-xs text-muted-foreground">{plan.details}</p>
                         </div>
 
-                        <button onClick={() => { setEditingPlanId(plan._id); setPlanForm({ price: plan.price, apiLimit: plan.apiLimit, details: plan.details }); }} className="w-full mt-6 rounded-md border border-border hover:bg-secondary bg-card py-2 text-xs font-medium text-foreground transition-colors cursor-pointer">Modify Pricing Parameters</button>
+                        <div className="flex gap-2 mt-6">
+                          <button onClick={() => { setEditingPlanId(plan._id); setPlanForm({ name: plan.name, price: plan.price, details: plan.details, maxStudents: plan.maxStudents, maxStorageGB: plan.maxStorageGB }); }} className="w-full rounded-md border border-border hover:bg-secondary bg-card py-2 text-xs font-medium text-foreground transition-colors cursor-pointer">Modify</button>
+                          <button onClick={() => setDeleteConfirm({ type: 'plan', id: plan._id })} className="rounded-md border border-destructive/20 hover:bg-destructive/10 text-destructive px-3 py-2 text-xs font-medium transition-colors cursor-pointer" title="Delete Plan">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -872,6 +1032,7 @@ export default function SuperAdminDashboard() {
                     <th className="px-4 py-3 font-medium">Daily Burn</th>
                     <th className="px-4 py-3 font-medium">Wallet Balance</th>
                     <th className="px-4 py-3 font-medium">Estimated Days Left</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -892,6 +1053,15 @@ export default function SuperAdminDashboard() {
                          </td>
                          <td className={`px-4 py-3 font-semibold ${daysLeft <= 3 ? 'text-amber-500' : 'text-foreground'}`}>
                            {inst.walletBalance < 0 ? `Suspends in ${7 - (inst.negativeDaysCount || 0)} days` : `${daysLeft} days`}
+                         </td>
+                         <td className="px-4 py-3 text-right">
+                           <button 
+                             onClick={() => handleAdjustWallet(inst.id)}
+                             disabled={updatingId === inst.id}
+                             className="px-2 py-1 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded text-[10px] transition-colors"
+                           >
+                             Adjust
+                           </button>
                          </td>
                        </tr>
                      );
@@ -916,7 +1086,7 @@ export default function SuperAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {transactions.filter((tx: any) => tx.type === 'Recharge').map((tx: any) => (
+                  {transactions.filter((tx: any) => ['Recharge', 'Manual Adjustment'].includes(tx.type)).map((tx: any) => (
                     <tr key={tx._id} className="hover:bg-secondary/5 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap">{new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="px-4 py-3 font-medium text-foreground">{tx.instituteId?.name || 'Unknown'}</td>
@@ -937,7 +1107,7 @@ export default function SuperAdminDashboard() {
                       </td>
                     </tr>
                   ))}
-                  {transactions.filter((tx: any) => tx.type === 'Recharge').length === 0 && (
+                  {transactions.filter((tx: any) => ['Recharge', 'Manual Adjustment'].includes(tx.type)).length === 0 && (
                      <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">No recharge transactions found.</td></tr>
                   )}
                 </tbody>
@@ -947,39 +1117,53 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* Diagnostics Health checks */}
-      {activeTab === 'health' && (
-        <div className="bg-card border border-border rounded-lg p-6 space-y-6">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
-            <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Live Hardware Monitors</h3>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1.5">
-              <Activity className="h-4 w-4" /> Optimal diagnostics
-            </span>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="bg-secondary/10 border border-border rounded-lg p-5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Database pool size</span>
-              <p className="text-2xl font-semibold text-foreground mt-1">18 / 50</p>
-              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-primary" style={{ width: '36%' }} />
+      {/* Storage Check Modal */}
+      {showStorageModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-card border border-border rounded-lg shadow-lg overflow-hidden p-6 text-center animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Diagnostic Storage Check</h3>
+            <p className="text-sm text-muted-foreground mb-6">Running this check performs a Class-A database query to aggregate real-time tenant storage bytes. Proceed?</p>
+            
+            {storageData ? (
+              <div className="bg-secondary/10 border border-border rounded-md p-4 mb-6">
+                <p className="text-2xl font-semibold text-foreground mb-3">
+                  {((storageData.videoBytes + storageData.documentBytes) / (1024 * 1024 * 1024)).toFixed(2)} GB
+                </p>
+                <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+                  <div className="flex justify-between border-b border-border/50 pb-1">
+                    <span>Video Storage:</span>
+                    <span className="font-medium text-foreground">{(storageData.videoBytes / (1024 * 1024 * 1024)).toFixed(2)} GB</span>
+                  </div>
+                  <div className="flex justify-between border-b border-border/50 pb-1">
+                    <span>Documents:</span>
+                    <span className="font-medium text-foreground">{(storageData.documentBytes / (1024 * 1024 * 1024)).toFixed(2)} GB</span>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : storageLoading ? (
+              <div className="py-6 flex flex-col items-center gap-3">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs text-muted-foreground animate-pulse">Running diagnostic check...</p>
+              </div>
+            ) : null}
 
-            <div className="bg-secondary/10 border border-border rounded-lg p-5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Memory usage load</span>
-              <p className="text-2xl font-semibold text-foreground mt-1">4.2 GB / 16 GB</p>
-              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-primary" style={{ width: '26%' }} />
-              </div>
-            </div>
-
-            <div className="bg-secondary/10 border border-border rounded-lg p-5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Storage capacity</span>
-              <p className="text-2xl font-semibold text-foreground mt-1">14.8 GB / 100 GB</p>
-              <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden mt-3">
-                <div className="h-full bg-primary" style={{ width: '15%' }} />
-              </div>
+            <div className="flex gap-3 mt-2">
+              <button 
+                onClick={() => setShowStorageModal(null)}
+                className="flex-1 rounded-md px-4 py-2 border border-border text-foreground text-sm font-medium hover:bg-secondary/50 transition-colors"
+              >
+                {storageData ? 'Close' : 'Cancel'}
+              </button>
+              {!storageData && (
+                <button 
+                  onClick={() => fetchStorageData(showStorageModal)}
+                  disabled={storageLoading}
+                  className="flex-1 rounded-md px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  Run Query
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1021,6 +1205,93 @@ export default function SuperAdminDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-card border border-border rounded-lg shadow-lg overflow-hidden p-6 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="mx-auto w-12 h-12 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mb-4">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">Confirm Deletion</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to permanently delete this {deleteConfirm.type}? This action cannot be undone and will erase all associated data.
+            </p>
+
+            <div className="flex gap-3 mt-2">
+              <button 
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 rounded-md px-4 py-2 border border-border text-foreground text-sm font-medium hover:bg-secondary/50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 rounded-md px-4 py-2 bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors cursor-pointer"
+              >
+                Permanently Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Plan Modal */}
+      {showCreatePlanModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-card border border-border rounded-lg shadow-lg overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Create New Plan</h3>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase">Plan Code (e.g. Pro, Ultimate)</label>
+                <input 
+                  type="text" 
+                  value={newPlanForm.planCode} 
+                  onChange={e => setNewPlanForm({...newPlanForm, planCode: e.target.value})} 
+                  className="w-full bg-secondary/20 border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" 
+                  placeholder="Enter code"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase">Plan Name</label>
+                <input 
+                  type="text" 
+                  value={newPlanForm.name} 
+                  onChange={e => setNewPlanForm({...newPlanForm, name: e.target.value})} 
+                  className="w-full bg-secondary/20 border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" 
+                  placeholder="Enter name"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-medium text-muted-foreground uppercase">Price String (e.g. ₹2999/mo)</label>
+                <input 
+                  type="text" 
+                  value={newPlanForm.price} 
+                  onChange={e => setNewPlanForm({...newPlanForm, price: e.target.value})} 
+                  className="w-full bg-secondary/20 border border-input rounded px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary mt-1" 
+                  placeholder="Enter price"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowCreatePlanModal(false)}
+                className="flex-1 rounded-md px-4 py-2 border border-border text-foreground text-sm font-medium hover:bg-secondary/50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitNewPlan}
+                disabled={updatingId === 'create-plan'}
+                className="flex-1 rounded-md px-4 py-2 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {updatingId === 'create-plan' ? 'Creating...' : 'Create Plan'}
+              </button>
             </div>
           </div>
         </div>

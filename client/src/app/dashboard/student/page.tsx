@@ -424,7 +424,7 @@ export default function StudentDashboard() {
               ) : (
                 <div>
                   <p className="text-2xl font-semibold text-foreground mt-2 leading-none truncate">
-                    {session.instituteId ? (activeInstitutes.find(i => i._id === session.instituteId)?.name || 'Linked Tenant') : 'Independent Learner'}
+                    {session.instituteId ? (activeInstitutes.find(i => i._id === session.instituteId)?.name || 'Linked Tenant') : 'Unknown Institute'}
                   </p>
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-[10px] text-muted-foreground font-sans">Educational tenant affiliation</p>

@@ -143,6 +143,7 @@ export default function CourseDetailsPage() {
   const [assignmentDeadline, setAssignmentDeadline] = useState('');
   const [assignmentTotalMarks, setAssignmentTotalMarks] = useState<number>(100);
   const [assignmentAttachmentUrl, setAssignmentAttachmentUrl] = useState('');
+  const [assignmentAttachmentFile, setAssignmentAttachmentFile] = useState<File | null>(null);
   const [assignmentError, setAssignmentError] = useState('');
   const [assignmentSuccess, setAssignmentSuccess] = useState('');
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
@@ -1237,6 +1238,19 @@ export default function CourseDetailsPage() {
     setAssignmentSuccess('');
 
     try {
+      let finalAttachmentUrl = assignmentAttachmentUrl;
+
+      // If a file is attached, upload it first to stream-service
+      if (assignmentAttachmentFile) {
+        setUploadStage('Uploading attachment...');
+        setUploadProgress(0);
+        const uploadRes = await uploadFileWithProgress('http://localhost:4000/api/upload/document', assignmentAttachmentFile, session.token, 'document', {
+          instituteId: courseData.instituteId,
+          courseId
+        });
+        finalAttachmentUrl = uploadRes.url;
+      }
+
       const res = await fetch(`${API_BASE_URL}/api/assignments/courses/${courseId}`, {
         method: 'POST',
         headers: {
@@ -1249,7 +1263,7 @@ export default function CourseDetailsPage() {
           description: assignmentDesc,
           deadline: assignmentDeadline,
           totalMarks: assignmentTotalMarks,
-          attachmentUrl: assignmentAttachmentUrl
+          attachmentUrl: finalAttachmentUrl
         })
       });
 
@@ -1262,6 +1276,7 @@ export default function CourseDetailsPage() {
         setAssignmentDesc('');
         setAssignmentDeadline('');
         setAssignmentAttachmentUrl('');
+        setAssignmentAttachmentFile(null);
         setAssignmentTotalMarks(100);
         forceRefresh();
         setTimeout(() => {
@@ -1859,6 +1874,8 @@ export default function CourseDetailsPage() {
             setAssignmentTotalMarks={setAssignmentTotalMarks}
             assignmentAttachmentUrl={assignmentAttachmentUrl}
             setAssignmentAttachmentUrl={setAssignmentAttachmentUrl}
+            assignmentAttachmentFile={assignmentAttachmentFile}
+            setAssignmentAttachmentFile={setAssignmentAttachmentFile}
             assignmentError={assignmentError}
             setAssignmentError={setAssignmentError}
             assignmentSuccess={assignmentSuccess}

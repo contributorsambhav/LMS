@@ -3,7 +3,9 @@ import { Request, Response } from 'express';
 import { Institute } from '../models/Institute';
 import { User } from '../models/User';
 import { Verification } from '../models/Verification';
+import { Plan } from '../models/Plan';
 import { PromoCode } from '../models/PromoCode';
+import { Transaction } from '../models/Transaction';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Razorpay from 'razorpay';
@@ -150,45 +152,6 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-export const createOrder = async (req: Request, res: Response) => {
-  try {
-    const { amount, promoCode } = req.body;
-    
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ message: 'Razorpay keys not configured' });
-    }
-
-    let finalAmount = amount;
-    if (promoCode) {
-        const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
-        if (promo) {
-            const discount = (promo.discountPercentage / 100) * amount;
-            finalAmount = amount - discount;
-        }
-    }
-
-    const instance = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
-
-    const options = {
-      amount: finalAmount * 100, // amount in smallest currency unit
-      currency: "INR",
-      receipt: "receipt_order_" + Date.now(),
-      notes: {
-        originalAmount: amount,
-        promoCode: promoCode || ''
-      }
-    };
-
-    const order = await instance.orders.create(options);
-    return res.status(200).json(order);
-  } catch (error: any) {
-    console.error("Create order error:", error);
-    return res.status(500).json({ message: "Failed to create order", error: error.message });
-  }
-};
 
 export const oauthLogin = async (req: Request, res: Response) => {
   try {
@@ -239,24 +202,6 @@ export const oauthLogin = async (req: Request, res: Response) => {
 
       if (role === 'InstituteAdmin') {
         const details = registrationDetails || {};
-        
-        if (action === 'signup') {
-          const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = details;
-          
-          if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
-             return res.status(400).json({ message: 'Payment details missing for Institute Admin registration.' });
-          }
-          
-          const body = razorpay_order_id + "|" + razorpay_payment_id;
-          const expectedSignature = crypto
-              .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
-              .update(body.toString())
-              .digest("hex");
-              
-          if (expectedSignature !== razorpay_signature) {
-             return res.status(400).json({ message: 'Invalid payment signature.' });
-          }
-        }
 
         const legalName = details.legalName || `${name}'s Legal Entity`;
         const brandName = details.brandName || `${name}'s Institute`;
@@ -282,16 +227,34 @@ export const oauthLogin = async (req: Request, res: Response) => {
           email,
           adminId: user._id,
           status: 'Active',
-          billingPlan: details.billingPlan || 'Basic'
+          billingPlan: details.billingPlan || 'Basic',
+          walletBalance: Number(details.amountPaid) || 0
         });
         await institute.save();
+
+        if (Number(details.amountPaid) > 0) {
+          const transaction = new Transaction({
+            instituteId: institute._id,
+            amount: Number(details.amountPaid),
+            type: 'Recharge',
+            description: `Initial registration payment for ${details.billingPlan || 'Basic'} Plan`,
+            promoCode: details.promoCode || null,
+            razorpayPaymentId: details.razorpay_payment_id,
+            razorpayOrderId: details.razorpay_order_id,
+          });
+          await transaction.save();
+        }
 
         user.instituteId = institute._id as any;
         await user.save();
       } else {
         // For Faculty and Student, they start Pending
         const details = registrationDetails || {};
-        const instituteId = (details.instituteId && details.instituteId !== 'none') ? details.instituteId : undefined;
+        const instituteId = details.instituteId;
+
+        if (!instituteId) {
+          return res.status(400).json({ message: "An institute selection is required to register." });
+        }
 
         user = new User({
           name,
@@ -421,11 +384,7 @@ export const updateInstitute = async (req: any, res: Response) => {
 
     // Set instituteId or clear it if it's null/'none'
     if (!instituteId || instituteId === 'none') {
-      user.instituteId = null;
-      user.status = 'Approved'; // Independent users are auto-approved
-      if (user.role === 'Faculty') {
-        user.affiliationStatus = 'Unaffiliated';
-      }
+      return res.status(400).json({ message: "An institute selection is required." });
     } else {
       user.instituteId = instituteId;
       if (user.role === 'Faculty') {
@@ -559,5 +518,37 @@ export const getMe = async (req: any, res: Response) => {
   } catch (error: any) {
     console.error("getMe error:", error);
     return res.status(500).json({ message: "Failed to fetch user details." });
+  }
+};
+
+export const getPublicPlans = async (req: Request, res: Response) => {
+  try {
+    const plans = await Plan.find().sort({ maxStudents: 1 });
+    return res.status(200).json(plans);
+  } catch (error: any) {
+    console.error("Error fetching public plans:", error);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+export const validatePromoCode = async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    if (!code) {
+      return res.status(400).json({ message: "Promo code is required." });
+    }
+
+    const promo = await PromoCode.findOne({ code: code.toUpperCase() });
+    if (!promo) {
+      return res.status(404).json({ message: "Invalid promo code." });
+    }
+    if (!promo.isActive) {
+      return res.status(400).json({ message: "This promo code is no longer active." });
+    }
+
+    return res.status(200).json({ message: "Promo code applied successfully!", discountPercentage: promo.discountPercentage });
+  } catch (error) {
+    console.error("Error validating promo code:", error);
+    return res.status(500).json({ message: "Internal server error." });
   }
 };

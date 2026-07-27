@@ -14,7 +14,8 @@ import {
   FileText,
   BookOpen,
   PlayCircle,
-  Compass
+  Compass,
+  HardDrive
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUser } from "../../../lib/session";
@@ -32,6 +33,9 @@ export default function AdminDashboard() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [rechargeAmount, setRechargeAmount] = useState<string>("");
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [pendingCourseApprovals, setPendingCourseApprovals] = useState<any[]>([]);
+  const [processingCourseId, setProcessingCourseId] = useState<string | null>(null);
+  const [syncingStorage, setSyncingStorage] = useState(false);
   const [roster, setRoster] = useState<{faculties: any[], students: any[]}>({ faculties: [], students: [] });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -129,6 +133,13 @@ export default function AdminDashboard() {
         setPendingUsers(await pendingRes.json());
       }
 
+      const pendingCoursesRes = await fetch(`${API_BASE_URL}/api/courses/pending-enrollments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (pendingCoursesRes.ok) {
+        setPendingCourseApprovals(await pendingCoursesRes.json());
+      }
+
       const rosterRes = await fetch(`${API_BASE_URL}/api/admin/roster`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -146,6 +157,54 @@ export default function AdminDashboard() {
       console.error("Failed to fetch admin data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncStorage = async () => {
+    if (!session?.token) return;
+    setSyncingStorage(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/sync-storage`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInstitute((prev: any) => ({ ...prev, storageUsage: data.storageUsage }));
+        toast.success('Storage synced successfully with Cloudflare R2!');
+      } else {
+        toast.error('Failed to sync storage');
+      }
+    } catch (error) {
+      toast.error('Network error');
+    } finally {
+      setSyncingStorage(false);
+    }
+  };
+
+  const handleProcessCourseEnrollment = async (enrollmentId: string, status: 'Approved' | 'Rejected') => {
+    if (!session?.token) return;
+    setProcessingCourseId(enrollmentId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/courses/enrollments/${enrollmentId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        toast.success(`Enrollment ${status.toLowerCase()} successfully`);
+        await fetchCourses(session.token);
+      } else {
+        const data = await res.json();
+        toast.error(data.message || 'Failed to update status');
+      }
+    } catch (error) {
+      toast.error('Network error');
+    } finally {
+      setProcessingCourseId(null);
     }
   };
 
@@ -438,7 +497,7 @@ export default function AdminDashboard() {
       <div className="flex border-b border-border gap-6 text-sm overflow-x-auto pb-1 scrollbar-violet">
         {[
           { id: 'overview', label: 'Overview' },
-          { id: 'approvals', label: `Approvals (${pendingUsers.length})` },
+          { id: 'approvals', label: `Approvals (${pendingUsers.length + pendingCourseApprovals.length})` },
           { id: 'rosters', label: 'Rosters' },
           { id: 'courses', label: 'Courses' },
           { id: 'billing', label: 'Billing' },
@@ -535,6 +594,75 @@ export default function AdminDashboard() {
               )}
             </div>
 
+            <div className="lg:col-span-1 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resource Usage</h3>
+              </div>
+              
+              <div className="bg-card border border-border rounded-lg p-6 space-y-6">
+                <div className="flex items-center gap-3 border-b border-border pb-4">
+                  <div className="p-2 bg-primary/10 rounded-md">
+                    <HardDrive className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold">Storage Consumed</h4>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Cloudflare R2 & Backblaze B2</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs font-medium flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5 text-blue-500" /> Video Storage</span>
+                      <span className="text-xs font-semibold">
+                        {institute?.storageUsage?.videoBytes 
+                          ? (institute.storageUsage.videoBytes / (1024 * 1024 * 1024)).toFixed(2) 
+                          : '0.00'} GB
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 rounded-full"
+                        style={{ width: `${Math.min(100, (institute?.storageUsage?.videoBytes || 0) / (10 * 1024 * 1024 * 1024) * 100)}%` }} // Assumes 10GB limit for visual scale
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-xs font-medium flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-amber-500" /> Document Storage</span>
+                      <span className="text-xs font-semibold">
+                        {institute?.storageUsage?.documentBytes 
+                          ? (institute.storageUsage.documentBytes / (1024 * 1024)).toFixed(2) 
+                          : '0.00'} MB
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-amber-500 rounded-full"
+                        style={{ width: `${Math.min(100, (institute?.storageUsage?.documentBytes || 0) / (1024 * 1024 * 1024) * 100)}%` }} // Assumes 1GB limit for visual scale
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border flex flex-col gap-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Total Usage:</span>
+                    <span className="font-bold text-foreground">
+                      {(((institute?.storageUsage?.videoBytes || 0) + (institute?.storageUsage?.documentBytes || 0)) / (1024 * 1024 * 1024)).toFixed(2)} GB
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleSyncStorage}
+                    disabled={syncingStorage}
+                    className="w-full py-2 bg-secondary/50 hover:bg-secondary text-secondary-foreground text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {syncingStorage ? 'Syncing with Cloud...' : 'Sync Storage'}
+                  </button>
+                </div>
+              </div>
+            </div>
             
           </div>
         </div>
@@ -631,9 +759,10 @@ export default function AdminDashboard() {
                       if (res.ok) {
                         const data = await res.json();
                         setInstitute(data.institute);
-                        toast.success("Plan updated! New daily rate applies at midnight.");
+                        toast.success("Plan updated! New daily rate apiplies at midnight.");
                       } else {
-                        toast.error("Failed to update plan");
+                        const errorData = await res.json();
+                        toast.error(errorData.message || "Failed to update plan");
                       }
                     } catch (error) {
                       toast.error("Network error");
@@ -642,7 +771,9 @@ export default function AdminDashboard() {
                   className="w-full bg-card border border-input rounded-md px-2 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary cursor-pointer"
                 >
                   {plans.map(p => (
-                    <option key={p.planCode} value={p.planCode}>{p.name} ({p.price})</option>
+                    <option key={p.planCode} value={p.planCode}>
+                      {p.name} ({p.price} | Max {p.maxStudents || 'Unlimited'} Users | Max {p.maxStorageGB || 'Unlimited'}GB)
+                    </option>
                   ))}
                 </select>
               </div>
@@ -927,6 +1058,52 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-6 pb-2 border-b border-border">
+              <div>
+                <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Course Enrollment Requests</h3>
+                <p className="text-[11px] text-muted-foreground mt-1">Review and grant course access to students who requested to join.</p>
+              </div>
+              <span className="rounded bg-primary/10 border border-primary/20 px-2.5 py-0.5 text-xs font-medium text-primary">{pendingCourseApprovals.length} Pending</span>
+            </div>
+
+            {pendingCourseApprovals.length === 0 ? (
+              <div className="text-center py-12 rounded-md border border-dashed border-border bg-secondary/10">
+                <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-xs font-semibold text-foreground">All caught up!</p>
+                <p className="text-[11px] text-muted-foreground mt-1">No pending student join requests waiting.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingCourseApprovals.map((req: any) => (
+                  <div key={req.id} className="flex items-center justify-between rounded-md border border-border bg-secondary/15 p-4">
+                    <div>
+                      <h4 className="font-semibold text-xs text-foreground">{req.student?.name}</h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{req.student?.email}</p>
+                      <p className="text-[10px] text-primary font-medium mt-2">Requested to join: <span className="font-semibold">{req.course?.name}</span></p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        disabled={processingCourseId === req.id}
+                        onClick={() => handleProcessCourseEnrollment(req.id, 'Approved')}
+                        className="rounded bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        Approve
+                      </button>
+                      <button 
+                        disabled={processingCourseId === req.id}
+                        onClick={() => handleProcessCourseEnrollment(req.id, 'Rejected')}
+                        className="rounded bg-destructive hover:bg-destructive/90 text-destructive-foreground px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1059,7 +1236,9 @@ export default function AdminDashboard() {
                     className="w-full bg-card border border-input rounded-md px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
                   >
                     {plans.map(p => (
-                      <option key={p.planCode} value={p.planCode}>{p.name} ({p.price})</option>
+                      <option key={p.planCode} value={p.planCode}>
+                        {p.name} ({p.price} | Max {p.maxStudents || 'Unlimited'} Users | Max {p.maxStorageGB || 'Unlimited'}GB)
+                      </option>
                     ))}
                   </select>
                 ) : (

@@ -1,14 +1,12 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { Course } from "../models/Course";
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Subject } from "../models/Subject";
 import { User } from "../models/User";
 import { Enrollment } from "../models/Enrollment";
 import { Institute } from "../models/Institute";
 import { Transaction } from "../models/Transaction";
 import { PromoCode } from "../models/PromoCode";
-import { Plan } from "../models/Plan";
 import crypto from "crypto";
 
 // Helper to generate unique 6-character alphanumeric codes
@@ -411,29 +409,7 @@ export const updateInstituteProfile = async (req: AuthenticatedRequest, res: Res
     if (phoneNumber) institute.phoneNumber = phoneNumber;
     if (address) institute.address = address;
     if (email) institute.email = email;
-    
-    if (billingPlan && billingPlan !== institute.billingPlan) {
-      const targetPlan = await Plan.findOne({ planCode: billingPlan });
-      if (targetPlan) {
-        // Validate if they exceed target plan
-        const userCount = await User.countDocuments({ role: { $in: ["Student", "Faculty"] }, instituteId: institute._id });
-        const totalUserCount = userCount + 1; // +1 for the Admin
-        const totalStorageBytes = (institute.storageUsage?.videoBytes || 0) + (institute.storageUsage?.documentBytes || 0);
-        const totalStorageGB = totalStorageBytes / (1024 * 1024 * 1024);
-
-        if (totalUserCount > targetPlan.maxStudents) {
-          return res.status(400).json({ 
-            message: `Cannot change plan: You have ${totalUserCount} users, but the ${targetPlan.name} only allows ${targetPlan.maxStudents}. Please remove users or choose a higher plan.` 
-          });
-        }
-        if (totalStorageGB > targetPlan.maxStorageGB) {
-          return res.status(400).json({ 
-            message: `Cannot change plan: You have used ${totalStorageGB.toFixed(2)}GB, but the ${targetPlan.name} only allows ${targetPlan.maxStorageGB}GB. Please delete files or choose a higher plan.` 
-          });
-        }
-        institute.billingPlan = billingPlan;
-      }
-    }
+    if (billingPlan) institute.billingPlan = billingPlan;
 
     // Zoom Server-to-Server OAuth credentials
     if (zoomAccountId !== undefined) institute.zoomAccountId = zoomAccountId;
@@ -527,69 +503,5 @@ export const validatePromoCode = async (req: AuthenticatedRequest, res: Response
   } catch (error) {
     console.error("Error validating promo code:", error);
     res.status(500).json({ message: "Failed to validate promo code", error });
-  }
-};
-
-export const syncStorage = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const instituteId = req.user?.instituteId;
-    if (!instituteId) {
-      return res.status(403).json({ message: "No institute linked." });
-    }
-
-    const s3Client = new S3Client({
-      endpoint: process.env.R2_ENDPOINT || "",
-      region: process.env.R2_REGION || "auto",
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
-      },
-    });
-    const bucketName = process.env.R2_BUCKET_NAME || "";
-
-    let videoBytes = 0;
-    let documentBytes = 0;
-
-    // Only process if we actually have R2 credentials, otherwise just skip
-    if (bucketName) {
-      let isTruncated = true;
-      let continuationToken: string | undefined = undefined;
-      
-      while (isTruncated) {
-        const command = new ListObjectsV2Command({
-          Bucket: bucketName,
-          Prefix: `institutes/${instituteId}/`,
-          ContinuationToken: continuationToken,
-        });
-        const response: any = await s3Client.send(command);
-        
-        if (response.Contents) {
-          response.Contents.forEach((obj: any) => {
-            if (obj.Key?.includes('/videos/')) {
-              videoBytes += obj.Size || 0;
-            } else if (obj.Key?.includes('/documents/')) {
-              documentBytes += obj.Size || 0;
-            }
-          });
-        }
-        
-        isTruncated = response.IsTruncated || false;
-        continuationToken = response.NextContinuationToken;
-      }
-    }
-
-    const institute = await Institute.findByIdAndUpdate(
-      instituteId,
-      { storageUsage: { videoBytes, documentBytes } },
-      { new: true }
-    );
-
-    return res.status(200).json({
-      message: "Storage synced successfully",
-      storageUsage: institute?.storageUsage
-    });
-  } catch (error: any) {
-    console.error("Sync storage error:", error);
-    return res.status(500).json({ message: "Internal server error.", error: error.message });
   }
 };

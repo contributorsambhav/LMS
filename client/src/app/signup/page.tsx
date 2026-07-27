@@ -21,27 +21,35 @@ function SignupFormContent() {
   const [address, setAddress] = useState('');
   const [instituteId, setInstituteId] = useState('');
   const [activeInstitutes, setActiveInstitutes] = useState<any[]>([]);
+  const [plans, setPlans] = useState<any[]>([]);
   const [validationError, setValidationError] = useState('');
-  const [billingPlan, setBillingPlan] = useState<'Basic' | 'Premium' | 'Enterprise' | 'Custom'>('Basic');
+  const [billingPlan, setBillingPlan] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [promoStatus, setPromoStatus] = useState<'none' | 'loading' | 'valid' | 'invalid'>('none');
+  const [promoMessage, setPromoMessage] = useState('');
+  const [promoDiscount, setPromoDiscount] = useState(0);
 
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-    
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
+
 
   useEffect(() => {
     if (searchParams.get('role')) {
       setSelectedRole(searchParams.get('role') as any);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const plansRes = await fetch(`${API_BASE_URL}/api/auth/plans`);
+      if (plansRes.ok) {
+        const plansData = await plansRes.json();
+        setPlans(plansData);
+        if (plansData.length > 0) {
+          setBillingPlan(plansData[0].planCode);
+        }
+      }
+    };
+    fetchData();
+  }, []);
 
   // Fetch approved active institutes for Students and Faculty
   useEffect(() => {
@@ -62,6 +70,32 @@ function SignupFormContent() {
     }
   }, [selectedRole]);
 
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoStatus('loading');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/validate-promo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode.trim() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPromoStatus('valid');
+        setPromoMessage(data.message);
+        setPromoDiscount(data.discountPercentage);
+      } else {
+        setPromoStatus('invalid');
+        setPromoMessage(data.message || 'Invalid promo code');
+        setPromoDiscount(0);
+      }
+    } catch (error) {
+      setPromoStatus('invalid');
+      setPromoMessage('Error validating code');
+      setPromoDiscount(0);
+    }
+  };
+
   const handleSignup = async () => {
     setLoading(true);
     setValidationError('');
@@ -73,63 +107,8 @@ function SignupFormContent() {
         setLoading(false);
         return;
       }
-      
-      // Determine amount from plan
-      let amount = 299;
-      if (billingPlan === 'Premium') amount = 599;
-      if (billingPlan === 'Enterprise') amount = 1450;
-      if (billingPlan === 'Custom') amount = 2000;
-      
-      // Create Razorpay Order
-      try {
-          const res = await fetch(`${API_BASE_URL}/api/auth/create-order`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ amount })
-          });
-          
-          if (!res.ok) {
-              setValidationError("Failed to initialize payment. Please try again.");
-              setLoading(false);
-              return;
-          }
-          
-          const order = await res.json();
-          
-          const options = {
-              key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-              amount: order.amount,
-              currency: order.currency,
-              name: "LumenLMS Institute Registration",
-              description: `Payment for ${billingPlan} Plan`,
-              order_id: order.id,
-              handler: function (response: any) {
-                  query += `&legalName=${encodeURIComponent(legalName.trim())}&brandName=${encodeURIComponent(brandName.trim())}&phoneNumber=${encodeURIComponent(phoneNumber.trim())}&address=${encodeURIComponent(address.trim())}&billingPlan=${encodeURIComponent(billingPlan)}`;
-                  query += `&razorpay_payment_id=${response.razorpay_payment_id}&razorpay_order_id=${response.razorpay_order_id}&razorpay_signature=${response.razorpay_signature}`;
-                  router.push(`/api/auth/google?${query}&action=signup`);
-              },
-              prefill: {
-                  name: legalName,
-                  contact: phoneNumber
-              },
-              theme: {
-                  color: "#3399cc"
-              },
-              modal: {
-                  ondismiss: function() {
-                      setLoading(false);
-                  }
-              }
-          };
-          
-          const rzp1 = new (window as any).Razorpay(options);
-          rzp1.open();
-          return; // Wait for Razorpay modal to handle redirect
-      } catch (e) {
-          setValidationError("Payment service is currently unavailable.");
-          setLoading(false);
-          return;
-      }
+      query += `&legalName=${encodeURIComponent(legalName.trim())}&brandName=${encodeURIComponent(brandName.trim())}&phoneNumber=${encodeURIComponent(phoneNumber.trim())}&address=${encodeURIComponent(address.trim())}&billingPlan=${encodeURIComponent(billingPlan)}`;
+      query += `&promoCode=${encodeURIComponent(promoCode.trim())}`;
     } else {
       if (!instituteId) {
         setValidationError("Please select an approved institute.");
@@ -290,11 +269,38 @@ function SignupFormContent() {
                 <div>
                   <label className="text-xs text-muted-foreground">Select Billing Plan</label>
                   <select id="billingPlan" value={billingPlan} onChange={(e: any) => setBillingPlan(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary h-10">
-                    <option value="Basic">Basic Plan (₹299/mo)</option>
-                    <option value="Premium">Premium Plan (₹599/mo)</option>
-                    <option value="Enterprise">Enterprise Plan (₹1,450/mo)</option>
-                    <option value="Custom">Custom Plan (Contact Sales)</option>
+                    {plans.map(p => (
+                      <option key={p.planCode} value={p.planCode}>
+                        {p.name} ({p.price} | Max {p.maxStudents || 'Unlimited'} Users | Max {p.maxStorageGB || 'Unlimited'}GB)
+                      </option>
+                    ))}
                   </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Promo Code (Optional)</label>
+                  <div className="flex gap-2 mt-1.5">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoStatus('none');
+                        setPromoMessage('');
+                      }}
+                      placeholder="e.g. EARLYBIRD20"
+                      className="w-full rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground placeholder-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary uppercase"
+                    />
+                    <button 
+                      type="button" 
+                      onClick={handleApplyPromo}
+                      disabled={!promoCode.trim() || promoStatus === 'loading'}
+                      className="whitespace-nowrap px-4 py-2 bg-secondary text-secondary-foreground text-xs font-medium rounded hover:bg-secondary/80 disabled:opacity-50"
+                    >
+                      {promoStatus === 'loading' ? 'Wait...' : 'Apply'}
+                    </button>
+                  </div>
+                  {promoStatus === 'valid' && <p className="text-[10px] font-medium text-emerald-500 mt-1">{promoMessage} ({promoDiscount}% off)</p>}
+                  {promoStatus === 'invalid' && <p className="text-[10px] font-medium text-destructive mt-1">{promoMessage}</p>}
                 </div>
               </>
             ) : (
@@ -345,9 +351,7 @@ function SignupFormContent() {
                     onChange={(e) => setInstituteId(e.target.value)}
                     className="w-full mt-1.5 rounded-md border border-input bg-card px-3 py-2 text-xs text-foreground focus:border-primary outline-none"
                   >
-                    {selectedRole === 'student' && (
-                      <option value="none">Unaffiliated (Independent Learner)</option>
-                    )}
+                    <option value="" disabled>Select an Institute...</option>
                     {activeInstitutes.map((inst) => (
                       <option key={inst._id} value={inst._id}>
                         {inst.brandName || inst.name} — ID: {inst._id}

@@ -15,7 +15,8 @@ import {
   getPendingUsers,
   verifyRecharge,
   getTransactions,
-  validatePromoCode
+  validatePromoCode,
+  syncStorage
 } from "../controllers/adminController";
 import { getPlans } from "../controllers/superController";
 
@@ -37,6 +38,7 @@ router.get("/plans", getPlans);
 router.post("/verify-recharge", verifyRecharge);
 router.get("/transactions", getTransactions);
 router.post("/validate-promo", validatePromoCode);
+router.post("/sync-storage", syncStorage);
 
 // Subject Management
 router.post("/subjects", createSubject);

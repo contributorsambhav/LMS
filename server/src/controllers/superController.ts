@@ -8,6 +8,16 @@ import { Verification } from "../models/Verification";
 import { Plan } from "../models/Plan";
 import { Transaction } from "../models/Transaction";
 import { PromoCode } from "../models/PromoCode";
+import { Session } from "../models/Session";
+import { Material } from "../models/Material";
+import { Quiz } from "../models/Quiz";
+import { QuizAttempt } from "../models/QuizAttempt";
+import { Assignment } from "../models/Assignment";
+import { Submission } from "../models/Submission";
+import { DoubtThread } from "../models/DoubtThread";
+import { Message } from "../models/Message";
+import { Progress } from "../models/Progress";
+import { Lesson } from "../models/Lesson";
 import mongoose from "mongoose";
 
 export const getInstitutes = async (req: AuthenticatedRequest, res: Response) => {
@@ -20,12 +30,12 @@ export const getInstitutes = async (req: AuthenticatedRequest, res: Response) =>
         const courseIds = courses.map(c => c._id);
 
         const courseCount = courseIds.length;
-        const facultyCount = await Enrollment.countDocuments({
-          courseId: { $in: courseIds },
+        const facultyCount = await User.countDocuments({
+          instituteId: inst._id,
           role: "Faculty"
         });
-        const studentCount = await Enrollment.countDocuments({
-          courseId: { $in: courseIds },
+        const studentCount = await User.countDocuments({
+          instituteId: inst._id,
           role: "Student"
         });
 
@@ -211,14 +221,62 @@ export const deleteInstitute = async (req: AuthenticatedRequest, res: Response) 
       return res.status(404).json({ message: "Institute not found." });
     }
 
-    await User.deleteMany({ instituteId: id });
+    // 1. Fetch all associated courses
+    const courses = await Course.find({ instituteId: id });
+    const courseIds = courses.map(c => c._id);
+
+    // 2. Trigger R2 Asset Deletion for each course via stream-service
+    const streamServiceUrl = process.env.STREAM_SERVICE_URL || "http://localhost:4000";
+    for (const courseId of courseIds) {
+      try {
+        await fetch(`${streamServiceUrl}/api/upload/course/${id}/${courseId}`, {
+          method: "DELETE"
+        });
+        console.log(`Successfully triggered R2 cleanup for course ${courseId}`);
+      } catch (err) {
+        console.error(`Failed to clean up course assets from R2 for ${courseId}:`, err);
+      }
+    }
+
+    // 3. Delete everything associated with courses
+    if (courseIds.length > 0) {
+      await Course.deleteMany({ instituteId: id });
+      await Session.deleteMany({ courseId: { $in: courseIds } });
+      await Material.deleteMany({ courseId: { $in: courseIds } });
+      await Lesson.deleteMany({ courseId: { $in: courseIds } });
+      await Quiz.deleteMany({ courseId: { $in: courseIds } });
+      await QuizAttempt.deleteMany({ courseId: { $in: courseIds } });
+      await Assignment.deleteMany({ courseId: { $in: courseIds } });
+      await Submission.deleteMany({ courseId: { $in: courseIds } });
+      await DoubtThread.deleteMany({ courseId: { $in: courseIds } });
+      await Message.deleteMany({ courseId: { $in: courseIds } });
+      await Progress.deleteMany({ courseId: { $in: courseIds } });
+      await Enrollment.deleteMany({ courseId: { $in: courseIds } });
+    }
+
+    // 4. Delete users and everything explicitly bound to those users
+    const users = await User.find({ instituteId: id });
+    const userIds = users.map(u => u._id);
+
+    if (userIds.length > 0) {
+      await Progress.deleteMany({ userId: { $in: userIds } });
+      await Enrollment.deleteMany({ userId: { $in: userIds } });
+      await DoubtThread.deleteMany({ authorId: { $in: userIds } });
+      await Message.deleteMany({ senderId: { $in: userIds } });
+      await QuizAttempt.deleteMany({ studentId: { $in: userIds } });
+      await Submission.deleteMany({ studentId: { $in: userIds } });
+      await User.deleteMany({ instituteId: id });
+    }
+
+    // 5. Delete tenant specific root records
     await Verification.deleteMany({ instituteId: id });
+    await Transaction.deleteMany({ instituteId: id });
     await Institute.findByIdAndDelete(id);
 
-    return res.status(200).json({ message: "Tenant and all associated users have been permanently deleted." });
+    return res.status(200).json({ message: "Tenant, all associated courses, users, and R2 storage assets have been permanently wiped." });
   } catch (error) {
     console.error("Error deleting institute:", error);
-    return res.status(500).json({ message: "Failed to delete tenant." });
+    return res.status(500).json({ message: "Failed to wipe tenant and its data." });
   }
 };
 
@@ -235,16 +293,19 @@ export const getPlans = async (req: AuthenticatedRequest, res: Response) => {
 export const updatePlan = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { price, apiLimit, details } = req.body;
+    const { price, apiLimit, details, maxStorageGB, maxStudents, name } = req.body;
 
     const plan = await Plan.findById(id);
     if (!plan) {
       return res.status(404).json({ message: "Plan not found." });
     }
 
-    if (price) plan.price = price;
-    if (apiLimit) plan.apiLimit = apiLimit;
-    if (details) plan.details = details;
+    if (price !== undefined) plan.price = price;
+    if (name !== undefined) plan.name = name;
+    if (apiLimit !== undefined) plan.apiLimit = apiLimit;
+    if (details !== undefined) plan.details = details;
+    if (maxStorageGB !== undefined) plan.maxStorageGB = maxStorageGB;
+    if (maxStudents !== undefined) plan.maxStudents = maxStudents;
 
     await plan.save();
 
@@ -384,5 +445,104 @@ export const togglePromoCode = async (req: AuthenticatedRequest, res: Response) 
   } catch (error) {
     console.error("Error toggling promo code:", error);
     return res.status(500).json({ message: "Failed to toggle promo code." });
+  }
+};
+
+export const updateInstituteWallet = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+
+    if (amount === undefined || isNaN(Number(amount))) {
+      return res.status(400).json({ message: "Invalid amount provided." });
+    }
+
+    const institute = await Institute.findById(id);
+    if (!institute) {
+      return res.status(404).json({ message: "Institute not found." });
+    }
+
+    institute.walletBalance = (institute.walletBalance || 0) + Number(amount);
+    
+    // Reset negative days count if they are back in the green
+    if (institute.walletBalance >= 0) {
+      institute.negativeDaysCount = 0;
+    }
+    
+    await institute.save();
+
+    const transaction = new Transaction({
+      instituteId: institute._id,
+      amount: Math.abs(Number(amount)),
+      type: Number(amount) >= 0 ? "Recharge" : "Manual Adjustment",
+      description: `Super Admin Manual Adjustment: ${reason || (Number(amount) >= 0 ? "Added funds" : "Deducted funds")}`
+    });
+    await transaction.save();
+
+    return res.status(200).json({ message: `Wallet successfully adjusted by ${amount > 0 ? '+' : ''}${amount}.`, walletBalance: institute.walletBalance });
+  } catch (error: any) {
+    console.error("updateInstituteWallet error:", error);
+    return res.status(500).json({ message: "Failed to adjust wallet.", error: error.message });
+  }
+};
+
+export const createPlan = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { planCode, name, price, apiLimit, details, maxStorageGB, maxStudents } = req.body;
+    
+    if (!planCode || !name || !price) {
+      return res.status(400).json({ message: "Plan code, name, and price are required." });
+    }
+
+    const existingPlan = await Plan.findOne({ planCode });
+    if (existingPlan) {
+      return res.status(400).json({ message: "Plan with this code already exists." });
+    }
+
+    const plan = new Plan({
+      planCode,
+      name,
+      price,
+      apiLimit: apiLimit || "Unlimited",
+      details: details || "Custom plan",
+      maxStorageGB: maxStorageGB || 0,
+      maxStudents: maxStudents || 0
+    });
+    
+    await plan.save();
+    return res.status(201).json({ message: "Plan created successfully.", plan });
+  } catch (error: any) {
+    console.error("createPlan error:", error);
+    return res.status(500).json({ message: "Failed to create plan.", error: error.message });
+  }
+};
+
+export const deletePlan = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const plan = await Plan.findById(id);
+    if (!plan) return res.status(404).json({ message: "Plan not found." });
+    
+    await plan.deleteOne();
+    return res.status(200).json({ message: "Plan deleted successfully." });
+  } catch (error: any) {
+    console.error("deletePlan error:", error);
+    return res.status(500).json({ message: "Failed to delete plan.", error: error.message });
+  }
+};
+
+export const getInstituteStorage = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const institute = await Institute.findById(id, "storageUsage");
+    if (!institute) return res.status(404).json({ message: "Institute not found." });
+    
+    return res.status(200).json({
+      videoBytes: institute.storageUsage?.videoBytes || 0,
+      documentBytes: institute.storageUsage?.documentBytes || 0
+    });
+  } catch (error) {
+    console.error("Error fetching storage:", error);
+    return res.status(500).json({ message: "Failed to fetch storage." });
   }
 };

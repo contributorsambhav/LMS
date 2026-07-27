@@ -98,10 +98,10 @@ const startServer = async () => {
     if (planCount === 0) {
       console.log("Seeding default pricing plans...");
       await Plan.insertMany([
-        { planCode: 'Basic', name: 'Basic Plan', price: '₹299/mo', apiLimit: '50k req/mo', details: 'Best for individual training hubs' },
-        { planCode: 'Premium', name: 'Premium Plan', price: '₹599/mo', apiLimit: '250k req/mo', details: 'Perfect for growing educational institutions' },
-        { planCode: 'Enterprise', name: 'Enterprise Plan', price: '₹1,450/mo', apiLimit: 'Unlimited', details: 'Full power for university-scale platforms' },
-        { planCode: 'Custom', name: 'Custom Plan', price: 'Contact Sales', apiLimit: 'Customized', details: 'Tailored limits and dedicated support' }
+        { planCode: 'Basic', name: 'Basic Plan', price: '₹5000/mo', maxStorageGB: 300, maxStudents: 100, apiLimit: '50k req/mo', details: 'Best for individual training hubs' },
+        { planCode: 'Premium', name: 'Premium Plan', price: '₹9999/mo', maxStorageGB: 1000, maxStudents: 500, apiLimit: '250k req/mo', details: 'Perfect for growing educational institutions' },
+        { planCode: 'Enterprise', name: 'Enterprise Plan', price: '₹24999/mo', maxStorageGB: 5000, maxStudents: 2000, apiLimit: 'Unlimited', details: 'Full power for university-scale platforms' },
+        { planCode: 'Custom', name: 'Custom Plan', price: 'Contact Sales', maxStorageGB: 10000, maxStudents: 10000, apiLimit: 'Customized', details: 'Tailored limits and dedicated support' }
       ]);
     }
 
