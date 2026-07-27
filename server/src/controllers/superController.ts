@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Course } from "../models/Course";
 import { Enrollment } from "../models/Enrollment";
 import { Institute } from "../models/Institute";
@@ -534,7 +535,53 @@ export const deletePlan = async (req: AuthenticatedRequest, res: Response) => {
 export const getInstituteStorage = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const institute = await Institute.findById(id, "storageUsage");
+    
+    const s3Client = new S3Client({
+      endpoint: process.env.R2_ENDPOINT || "",
+      region: process.env.R2_REGION || "auto",
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
+      },
+    });
+    const bucketName = process.env.R2_BUCKET_NAME || "";
+
+    let videoBytes = 0;
+    let documentBytes = 0;
+
+    if (bucketName) {
+      let isTruncated = true;
+      let continuationToken: string | undefined = undefined;
+      
+      while (isTruncated) {
+        const command = new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: `institutes/${id}/`,
+          ContinuationToken: continuationToken,
+        });
+        const response: any = await s3Client.send(command);
+        
+        if (response.Contents) {
+          response.Contents.forEach((obj: any) => {
+            if (obj.Key?.includes('/videos/')) {
+              videoBytes += obj.Size || 0;
+            } else if (obj.Key?.includes('/documents/')) {
+              documentBytes += obj.Size || 0;
+            }
+          });
+        }
+        
+        isTruncated = response.IsTruncated || false;
+        continuationToken = response.NextContinuationToken;
+      }
+    }
+
+    const institute = await Institute.findByIdAndUpdate(
+      id,
+      { storageUsage: { videoBytes, documentBytes } },
+      { new: true }
+    );
+
     if (!institute) return res.status(404).json({ message: "Institute not found." });
     
     return res.status(200).json({

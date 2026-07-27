@@ -36,6 +36,7 @@ export default function AdminDashboard() {
   const [pendingCourseApprovals, setPendingCourseApprovals] = useState<any[]>([]);
   const [processingCourseId, setProcessingCourseId] = useState<string | null>(null);
   const [syncingStorage, setSyncingStorage] = useState(false);
+  const [showStorage, setShowStorage] = useState(false);
   const [roster, setRoster] = useState<{faculties: any[], students: any[]}>({ faculties: [], students: [] });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
@@ -171,6 +172,7 @@ export default function AdminDashboard() {
       if (res.ok) {
         const data = await res.json();
         setInstitute((prev: any) => ({ ...prev, storageUsage: data.storageUsage }));
+        setShowStorage(true);
         toast.success('Storage synced successfully with Cloudflare R2!');
       } else {
         toast.error('Failed to sync storage');
@@ -610,57 +612,74 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-xs font-medium flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5 text-blue-500" /> Video Storage</span>
-                      <span className="text-xs font-semibold">
-                        {institute?.storageUsage?.videoBytes 
-                          ? (institute.storageUsage.videoBytes / (1024 * 1024 * 1024)).toFixed(2) 
-                          : '0.00'} GB
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-blue-500 rounded-full"
-                        style={{ width: `${Math.min(100, (institute?.storageUsage?.videoBytes || 0) / (10 * 1024 * 1024 * 1024) * 100)}%` }} // Assumes 10GB limit for visual scale
-                      />
-                    </div>
-                  </div>
+                {showStorage ? (
+                  <>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-xs font-medium flex items-center gap-1.5"><PlayCircle className="h-3.5 w-3.5 text-blue-500" /> Video Storage</span>
+                          <span className="text-xs font-semibold">
+                            {institute?.storageUsage?.videoBytes 
+                              ? (institute.storageUsage.videoBytes / (1024 * 1024 * 1024)).toFixed(2) 
+                              : '0.00'} GB
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full"
+                            style={{ width: `${Math.min(100, (institute?.storageUsage?.videoBytes || 0) / (10 * 1024 * 1024 * 1024) * 100)}%` }} // Assumes 10GB limit for visual scale
+                          />
+                        </div>
+                      </div>
 
-                  <div>
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-xs font-medium flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-amber-500" /> Document Storage</span>
-                      <span className="text-xs font-semibold">
-                        {institute?.storageUsage?.documentBytes 
-                          ? (institute.storageUsage.documentBytes / (1024 * 1024)).toFixed(2) 
-                          : '0.00'} MB
-                      </span>
+                      <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-xs font-medium flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-amber-500" /> Document Storage</span>
+                          <span className="text-xs font-semibold">
+                            {institute?.storageUsage?.documentBytes 
+                              ? (institute.storageUsage.documentBytes / (1024 * 1024)).toFixed(2) 
+                              : '0.00'} MB
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-amber-500 rounded-full"
+                            style={{ width: `${Math.min(100, (institute?.storageUsage?.documentBytes || 0) / (1024 * 1024 * 1024) * 100)}%` }} // Assumes 1GB limit for visual scale
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-amber-500 rounded-full"
-                        style={{ width: `${Math.min(100, (institute?.storageUsage?.documentBytes || 0) / (1024 * 1024 * 1024) * 100)}%` }} // Assumes 1GB limit for visual scale
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                <div className="pt-4 border-t border-border flex flex-col gap-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">Total Usage:</span>
-                    <span className="font-bold text-foreground">
-                      {(((institute?.storageUsage?.videoBytes || 0) + (institute?.storageUsage?.documentBytes || 0)) / (1024 * 1024 * 1024)).toFixed(2)} GB
-                    </span>
+                    <div className="pt-4 border-t border-border flex flex-col gap-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">Total Usage:</span>
+                        <span className="font-bold text-foreground">
+                          {(((institute?.storageUsage?.videoBytes || 0) + (institute?.storageUsage?.documentBytes || 0)) / (1024 * 1024 * 1024)).toFixed(2)} GB
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleSyncStorage}
+                        disabled={syncingStorage}
+                        className="w-full py-2 bg-secondary/50 hover:bg-secondary text-secondary-foreground text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                      >
+                        {syncingStorage ? 'Syncing with Cloud...' : 'Refresh Storage Sync'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="pt-2 flex flex-col gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      Storage usage is a Class A operation. Click below to fetch real-time usage from Cloudflare.
+                    </p>
+                    <button
+                      onClick={handleSyncStorage}
+                      disabled={syncingStorage}
+                      className="w-full py-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                    >
+                      {syncingStorage ? 'Calculating...' : 'Calculate Usage'}
+                    </button>
                   </div>
-                  <button
-                    onClick={handleSyncStorage}
-                    disabled={syncingStorage}
-                    className="w-full py-2 bg-secondary/50 hover:bg-secondary text-secondary-foreground text-xs font-medium rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {syncingStorage ? 'Syncing with Cloud...' : 'Sync Storage'}
-                  </button>
-                </div>
+                )}
               </div>
             </div>
             

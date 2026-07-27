@@ -1128,16 +1128,16 @@ export default function SuperAdminDashboard() {
             {storageData ? (
               <div className="bg-secondary/10 border border-border rounded-md p-4 mb-6">
                 <p className="text-2xl font-semibold text-foreground mb-3">
-                  {((storageData.videoBytes + storageData.documentBytes) / (1024 * 1024 * 1024)).toFixed(2)} GB
+                  {((storageData.videoBytes + storageData.documentBytes) / (1024 * 1024 * 1024)).toFixed(3)} GB
                 </p>
                 <div className="flex flex-col gap-2 text-xs text-muted-foreground">
                   <div className="flex justify-between border-b border-border/50 pb-1">
                     <span>Video Storage:</span>
-                    <span className="font-medium text-foreground">{(storageData.videoBytes / (1024 * 1024 * 1024)).toFixed(2)} GB</span>
+                    <span className="font-medium text-foreground">{(storageData.videoBytes / (1024 * 1024 * 1024)).toFixed(3)} GB</span>
                   </div>
                   <div className="flex justify-between border-b border-border/50 pb-1">
                     <span>Documents:</span>
-                    <span className="font-medium text-foreground">{(storageData.documentBytes / (1024 * 1024 * 1024)).toFixed(2)} GB</span>
+                    <span className="font-medium text-foreground">{(storageData.documentBytes / (1024 * 1024)).toFixed(2)} MB</span>
                   </div>
                 </div>
               </div>
