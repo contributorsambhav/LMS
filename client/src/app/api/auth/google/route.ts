@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   
   const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
     redirectUri
-  )}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${base64State}`;
+  )}&response_type=code&scope=${encodeURIComponent(scopes)}&state=${encodeURIComponent(base64State)}`;
 
   return NextResponse.redirect(googleAuthUrl);
 }

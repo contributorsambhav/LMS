@@ -59,10 +59,8 @@ function SignupFormContent() {
         .then((data) => {
           if (Array.isArray(data)) {
             setActiveInstitutes(data);
-            if (selectedRole === 'student') {
-              setInstituteId('none');
-            } else if (data.length > 0) {
-              setInstituteId(data[0]._id);
+            if (selectedRole === 'student' || selectedRole === 'faculty') {
+              setInstituteId('');
             }
           }
         })
