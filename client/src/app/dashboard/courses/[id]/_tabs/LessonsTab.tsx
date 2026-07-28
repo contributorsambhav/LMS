@@ -38,6 +38,11 @@ export default function LessonsTab({
   React.useEffect(() => {
     if (selectedLesson && selectedLesson.videoUrl) {
       let url = selectedLesson.videoUrl.startsWith('http') ? selectedLesson.videoUrl : `${API_BASE_URL}${selectedLesson.videoUrl}`;
+      
+      if (url.includes('pub-5a79ce581ab24ada8541c0724458ba94.r2.dev')) {
+        url = url.replace('https://pub-5a79ce581ab24ada8541c0724458ba94.r2.dev', '/video-proxy');
+      }
+      
       url = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
       
       fetch(url)
