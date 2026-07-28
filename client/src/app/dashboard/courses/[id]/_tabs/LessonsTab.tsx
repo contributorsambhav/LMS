@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Plus, Video, Trash2, Clock } from 'lucide-react';
 import VideoPlayer from '../../../../../components/VideoPlayer';
-import { API_BASE_URL } from '../../../../../lib/api';
+import { API_BASE_URL, STREAM_SERVICE_URL } from '../../../../../lib/api';
 
 interface LessonsTabProps {
   lessons: any[];
@@ -75,7 +75,7 @@ export default function LessonsTab({
 
     setOptimizing(true);
     try {
-      const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+      const streamServiceUrl = STREAM_SERVICE_URL;
       const res = await fetch(`${streamServiceUrl}/api/upload/video/optimize`, {
         method: "POST",
         headers: {
@@ -92,7 +92,7 @@ export default function LessonsTab({
       });
       if (res.ok) {
         setProgressMsg("Initializing...");
-        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const streamServiceUrl = STREAM_SERVICE_URL;
         const source = new EventSource(`${streamServiceUrl}/api/upload/video/status/${videoId}`);
         source.onmessage = (event) => {
           const data = JSON.parse(event.data);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { toast } from 'react-toastify';
 import { X, UploadCloud, FileUp, Sparkles, AlertCircle, Clock, CheckCircle2, ChevronRight, FileText, CheckCircle, Video, Plus, Trash2 } from 'lucide-react';
-import { API_BASE_URL } from '../../../../../lib/api';
+import { API_BASE_URL, STREAM_SERVICE_URL } from '../../../../../lib/api';
 
 export default function CourseModals(props: any) {
   const {
@@ -1153,7 +1153,7 @@ export default function CourseModals(props: any) {
                                 
                                 try {
                                   toast.info('Uploading attachment...', { autoClose: 1000 });
-                                  const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+                                  const streamServiceUrl = STREAM_SERVICE_URL;
                                   const res = await fetch(`${streamServiceUrl}/api/upload/document`, {
                                     method: 'POST',
                                     headers: { Authorization: `Bearer ${session.token}` },

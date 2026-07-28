@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useUser } from '../../../../lib/session';
-import { API_BASE_URL } from '../../../../lib/api';
+import { API_BASE_URL, STREAM_SERVICE_URL } from '../../../../lib/api';
 import { 
   ArrowLeft, BookOpen, Calendar, LayoutList, Users, FileText, Plus, Trash2, Edit, 
   Copy, Check, ExternalLink, Video, Clock, UserCheck, UserMinus, 
@@ -543,7 +543,7 @@ export default function CourseDetailsPage() {
 
       if (materialFile) {
         // Step 1: Upload PDF to stream-service
-        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const streamServiceUrl = STREAM_SERVICE_URL;
         const uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/document`, materialFile, session.token, 'document', {
           instituteId: courseData.instituteId,
           courseId
@@ -800,7 +800,7 @@ export default function CourseDetailsPage() {
 
       if (lessonFile) {
         // Step 1: Upload to stream-service
-        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const streamServiceUrl = STREAM_SERVICE_URL;
         console.log("DEBUG: Using Stream Service URL:", streamServiceUrl);
         uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/video`, lessonFile, session.token, 'video', {
           resolution: '1080p',
@@ -844,7 +844,7 @@ export default function CourseDetailsPage() {
       // Step 3: Wait for transcoder to finish via SSE so we can show progress in UI
       if (uploadRes && uploadRes.videoId) {
          await new Promise((resolve, reject) => {
-           const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+           const streamServiceUrl = STREAM_SERVICE_URL;
            const source = new EventSource(`${streamServiceUrl}/api/upload/video/status/${uploadRes.videoId}`);
            source.onmessage = (event) => {
              const data = JSON.parse(event.data);
@@ -1248,7 +1248,7 @@ export default function CourseDetailsPage() {
       if (assignmentAttachmentFile) {
         setUploadStage('Uploading attachment...');
         setUploadProgress(0);
-        const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+        const streamServiceUrl = STREAM_SERVICE_URL;
         const uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/document`, assignmentAttachmentFile, session.token, 'document', {
           instituteId: courseData.instituteId,
           courseId
@@ -1350,7 +1350,7 @@ export default function CourseDetailsPage() {
     setUploadProgress(0);
     try {
       // Step 1: Upload PDF to stream-service
-      const streamServiceUrl = process.env.NEXT_PUBLIC_STREAM_SERVICE_URL as string;
+      const streamServiceUrl = STREAM_SERVICE_URL;
       const uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/document`, assignmentFile, session.token, 'document', {
         instituteId: courseData?.instituteId || '',
         courseId
