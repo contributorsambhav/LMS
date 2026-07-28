@@ -7,7 +7,7 @@ export default function GradingTab({ pendingGrading, courseId }: { pendingGradin
   const session = useUser();
   const [assignedDoubts, setAssignedDoubts] = useState<any[]>([]);
   const [loadingDoubts, setLoadingDoubts] = useState(true);
-  const DOUBT_SERVICE_URL = process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL as string;
+  const DOUBT_SERVICE_URL = "/doubt-proxy";
 
   useEffect(() => {
     if (!session?.token || !courseId) return;

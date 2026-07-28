@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
         source: '/stream-proxy/:path*',
         destination: `${process.env.NEXT_PUBLIC_STREAM_SERVICE_URL || 'http://44.211.39.221:4000'}/:path*`,
       },
+      {
+        source: '/doubt-proxy/:path*',
+        destination: `${process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL || 'http://44.211.39.221:5001'}/:path*`,
+      },
     ];
   },
 };

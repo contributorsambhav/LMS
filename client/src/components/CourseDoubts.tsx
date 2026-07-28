@@ -31,7 +31,8 @@ interface Message {
   createdAt: string;
 }
 
-const DOUBT_SERVICE_URL = process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL as string;
+// Use Next.js proxy to avoid mixed content errors
+const DOUBT_SERVICE_URL = "/doubt-proxy";
 
 export default function CourseDoubts({ courseId }: { courseId: string }) {
   const session = useUser();
@@ -84,7 +85,8 @@ export default function CourseDoubts({ courseId }: { courseId: string }) {
   useEffect(() => {
     if (!session?.token) return;
 
-    const newSocket = io(DOUBT_SERVICE_URL, {
+    const newSocket = io(window.location.origin, {
+      path: "/doubt-proxy/socket.io",
       auth: { token: session.token }
     });
 
