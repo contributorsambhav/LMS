@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const nextAuthUrl = process.env.NEXTAUTH_URL as string;
+  const nextAuthUrl = req.nextUrl.origin;
 
   if (error) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error)}`, req.url));

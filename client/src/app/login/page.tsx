@@ -111,7 +111,7 @@ function LoginFormContent() {
   };
 
   const triggerGoogleAuth = () => {
-    router.push(`/api/auth/google?role=${selectedRole}&action=login`);
+    window.location.href = `/api/auth/google?role=${selectedRole}&action=login`;
   };
 
   return (
