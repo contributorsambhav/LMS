@@ -250,9 +250,12 @@ export const oauthLogin = async (req: Request, res: Response) => {
       } else {
         // For Faculty and Student, they start Pending
         const details = registrationDetails || {};
-        const instituteId = details.instituteId;
+        let instituteId = details.instituteId;
+        if (instituteId === 'none') {
+          instituteId = null;
+        }
 
-        if (!instituteId) {
+        if (!instituteId && role !== 'Student') {
           return res.status(400).json({ message: "An institute selection is required to register." });
         }
 
