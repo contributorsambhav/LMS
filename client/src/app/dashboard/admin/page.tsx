@@ -341,7 +341,7 @@ export default function AdminDashboard() {
     setSessionError('');
 
     try {
-d3      let requestBody: FormData | string;
+      let requestBody: FormData | string;
       let requestHeaders: Record<string, string> = {
         Authorization: `Bearer ${session.token}`
       };
