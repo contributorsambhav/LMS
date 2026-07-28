@@ -39,8 +39,15 @@ export default function VideoPlayer({ src, lessonId, initialTime = 0, onProgress
       });
       hlsRef.current = hls;
 
+      // Proxy through Next.js to bypass CORS
+      let cacheBustedSrc = src;
+      if (src.includes('pub-5a79ce581ab24ada8541c0724458ba94.r2.dev')) {
+        cacheBustedSrc = src.replace('https://pub-5a79ce581ab24ada8541c0724458ba94.r2.dev', '/video-proxy');
+      }
+      
       // Add a cache buster to force fetching the newest manifest (bypasses old CDN caches)
-      const cacheBustedSrc = src.includes('?') ? `${src}&t=${Date.now()}` : `${src}?t=${Date.now()}`;
+      cacheBustedSrc = cacheBustedSrc.includes('?') ? `${cacheBustedSrc}&t=${Date.now()}` : `${cacheBustedSrc}?t=${Date.now()}`;
+      
       hls.loadSource(cacheBustedSrc);
       hls.attachMedia(video);
       

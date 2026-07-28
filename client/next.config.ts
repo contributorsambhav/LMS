@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
         source: '/doubt-proxy/:path*',
         destination: `${process.env.NEXT_PUBLIC_DOUBT_SERVICE_URL || 'http://44.211.39.221:5001'}/:path*`,
       },
+      {
+        source: '/video-proxy/:path*',
+        destination: 'https://pub-5a79ce581ab24ada8541c0724458ba94.r2.dev/:path*',
+      },
     ];
   },
 };
