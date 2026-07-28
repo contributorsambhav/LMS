@@ -161,7 +161,7 @@ function SignupFormContent() {
           order_id: orderData.orderId,
           handler: function (response: any) {
             query += `&razorpay_payment_id=${response.razorpay_payment_id}&razorpay_order_id=${response.razorpay_order_id}&razorpay_signature=${response.razorpay_signature}`;
-            router.push(`/api/auth/google?${query}&action=signup`);
+            window.location.href = `/api/auth/google?${query}&action=signup`;
           },
           prefill: {
             name: legalName,
@@ -187,7 +187,7 @@ function SignupFormContent() {
         setLoading(false);
       }
     } else {
-      router.push(`/api/auth/google?${query}&action=signup`);
+      window.location.href = `/api/auth/google?${query}&action=signup`;
     }
   };
 
