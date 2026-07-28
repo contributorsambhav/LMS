@@ -815,16 +815,57 @@ export default function CourseDetailsPage() {
       let uploadRes: any = null;
 
       if (lessonFile) {
-        // Step 1: Upload to stream-service
         const streamServiceUrl = STREAM_SERVICE_URL;
-        console.log("DEBUG: Using Stream Service URL:", streamServiceUrl);
-        uploadRes = await uploadFileWithProgress(`${streamServiceUrl}/api/upload/video`, lessonFile, session.token, 'video', {
-          resolution: '1080p',
-          instituteId: courseData.instituteId,
-          courseId
+        const videoId = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        
+        // 1. Get Presigned URL
+        setUploadStage('Requesting upload URL...');
+        const presignedRes = await fetch(`${streamServiceUrl}/api/upload/video/presigned-url?instituteId=${courseData.instituteId}&courseId=${courseId}&videoId=${videoId}&contentType=${encodeURIComponent(lessonFile.type)}`, {
+           headers: { Authorization: `Bearer ${session.token}` }
         });
+        if (!presignedRes.ok) throw new Error("Failed to get upload URL");
+        const { url, s3Key } = await presignedRes.json();
+        
+        // 2. Upload file directly to S3
+        setUploadStage('Uploading file directly to Cloudflare R2...');
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', url);
+          xhr.setRequestHeader('Content-Type', lessonFile.type);
+          
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              setUploadProgress(Math.round((event.loaded / event.total) * 100));
+            }
+          };
+          
+          xhr.onload = () => {
+             if (xhr.status >= 200 && xhr.status < 300) resolve(null);
+             else reject(new Error("Direct upload failed"));
+          };
+          xhr.onerror = () => reject(new Error("Direct upload failed"));
+          xhr.send(lessonFile);
+        });
+
+        // 3. Trigger Processing
+        setUploadStage('Triggering video processing...');
+        const processRes = await fetch(`${streamServiceUrl}/api/upload/video/process`, {
+           method: 'POST',
+           headers: { 
+             'Content-Type': 'application/json',
+             Authorization: `Bearer ${session.token}` 
+           },
+           body: JSON.stringify({
+              instituteId: courseData.instituteId,
+              courseId,
+              videoId
+           })
+        });
+        if (!processRes.ok) throw new Error("Failed to trigger processing");
+        uploadRes = await processRes.json();
+        
         fileUrl = uploadRes.masterUrl || uploadRes.url;
-        sizeInBytes = uploadRes.sizeInBytes || 0;
+        sizeInBytes = lessonFile.size;
       }
 
       setUploadStage('Saving to database...');

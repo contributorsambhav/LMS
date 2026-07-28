@@ -2,9 +2,88 @@ import { Request, Response } from "express";
 import { processVideo } from "../services/ffmpegService";
 import path from "path";
 import fs from "fs";
-import { uploadToS3, uploadDirectlyToS3, downloadFromS3, deleteFolderFromS3 } from "../services/s3UploadService";
+import { uploadToS3, uploadDirectlyToS3, downloadFromS3, deleteFolderFromS3, generatePresignedUrl } from "../services/s3UploadService";
 import { processLowerQualities } from "../services/ffmpegService";
 import { progressStore } from "../utils/progressStore";
+
+export const getPresignedUrl = async (req: Request, res: Response) => {
+  try {
+    const { instituteId, courseId, videoId, contentType } = req.query;
+    if (!instituteId || !courseId || !videoId || !contentType) {
+      return res.status(400).json({ message: "Missing required query parameters" });
+    }
+
+    const s3Prefix = `institutes/${instituteId}/courses/${courseId}/videos/${videoId}`;
+    const s3Key = `${s3Prefix}/raw.mp4`;
+    
+    const url = await generatePresignedUrl(s3Key, contentType as string);
+    
+    res.status(200).json({ url, s3Key, videoId });
+  } catch (error) {
+    console.error("Error generating presigned URL:", error);
+    res.status(500).json({ message: "Server error generating presigned URL" });
+  }
+};
+
+export const processDirectUpload = async (req: Request, res: Response) => {
+  try {
+    const { instituteId, courseId, videoId } = req.body;
+    if (!instituteId || !courseId || !videoId) {
+      return res.status(400).json({ message: "Missing required body parameters" });
+    }
+
+    const s3Prefix = `institutes/${instituteId}/courses/${courseId}/videos/${videoId}`;
+    const cdnBase = process.env.R2_PUBLIC_URL || "https://cdn.lumenlms.com";
+    const predictedMasterUrl = `${cdnBase}/${s3Prefix}/master.m3u8`;
+
+    res.status(202).json({ 
+      message: "Video processing started.",
+      videoId: videoId,
+      masterUrl: predictedMasterUrl,
+    });
+
+    // Run in background
+    processVideoFromS3InBackground(videoId, instituteId as string, courseId as string)
+      .catch(err => {
+        console.error(`Error processing direct upload ${videoId}:`, err);
+        progressStore[videoId] = { stage: "error", percent: 0 };
+      });
+
+  } catch (error) {
+    console.error("Error starting direct upload processing:", error);
+    if (!res.headersSent) res.status(500).json({ message: "Server error" });
+  }
+};
+
+async function processVideoFromS3InBackground(videoId: string, instituteId: string, courseId: string) {
+  const s3Prefix = `institutes/${instituteId}/courses/${courseId}/videos/${videoId}`;
+  const localRawPath = path.join(__dirname, "../../temp", `raw_${videoId}.mp4`);
+  const outputDir = path.join(__dirname, "../../temp", videoId);
+  
+  try {
+    progressStore[videoId] = { stage: "downloading_raw", percent: 0 };
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    console.log(`[${videoId}] Downloading raw video from S3...`);
+    await downloadFromS3(`${s3Prefix}/raw.mp4`, localRawPath);
+
+    console.log(`[${videoId}] Starting FFmpeg processing...`);
+    await processVideo(localRawPath, outputDir, videoId);
+
+    console.log(`[${videoId}] FFmpeg processing complete. Uploading chunks to S3...`);
+    progressStore[videoId] = { stage: "uploading", percent: 0 };
+    
+    await uploadToS3(outputDir, s3Prefix);
+    
+    progressStore[videoId] = { stage: "complete", percent: 100 };
+    const cdnBase = process.env.R2_PUBLIC_URL || "https://cdn.lumenlms.com";
+    console.log(`[${videoId}] Processing complete! URL: ${cdnBase}/${s3Prefix}/master.m3u8`);
+  } finally {
+    if (fs.existsSync(localRawPath)) fs.unlinkSync(localRawPath);
+    if (fs.existsSync(outputDir)) fs.rmSync(outputDir, { recursive: true, force: true });
+  }
+}
+
 
 export const uploadVideo = async (req: Request, res: Response) => {
   try {

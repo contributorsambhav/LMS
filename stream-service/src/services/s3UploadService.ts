@@ -1,9 +1,10 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import fs from "fs";
 import path from "path";
 
 // Initialize S3 Client for Cloudflare R2
-const s3Client = new S3Client({
+export const s3Client = new S3Client({
   endpoint: process.env.R2_ENDPOINT || "https://<ACCOUNT_ID>.r2.cloudflarestorage.com",
   region: process.env.R2_REGION || "auto",
   credentials: {
@@ -11,6 +12,22 @@ const s3Client = new S3Client({
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
   },
 });
+
+export const generatePresignedUrl = async (s3Key: string, contentType: string): Promise<string> => {
+  const bucketName = process.env.R2_BUCKET_NAME || "";
+  if (!bucketName) {
+    throw new Error("R2_BUCKET_NAME is not defined in environment variables.");
+  }
+  
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: s3Key,
+    ContentType: contentType,
+    CacheControl: "public, max-age=31536000",
+  });
+  
+  return getSignedUrl(s3Client, command, { expiresIn: 3600 });
+};
 
 export const uploadToS3 = async (localDirPath: string, s3Prefix: string): Promise<void> => {
   const bucketName = process.env.R2_BUCKET_NAME || "";

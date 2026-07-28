@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { uploadVideo, optimizeVideoQualities, getProgressStatus, deleteCourseAssets } from "../controllers/uploadController";
+import { uploadVideo, optimizeVideoQualities, getProgressStatus, deleteCourseAssets, getPresignedUrl, processDirectUpload } from "../controllers/uploadController";
 import { uploadDocument } from "../controllers/documentController";
 import multer from "multer";
 import path from "path";
@@ -28,6 +28,10 @@ const uploadDocumentMiddleware = multer({
 
 router.post("/video", uploadVideoMiddleware.single("video"), uploadVideo);
 router.post("/document", uploadDocumentMiddleware.single("document"), uploadDocument);
+
+// Direct-to-S3 Upload Routes
+router.get("/video/presigned-url", getPresignedUrl);
+router.post("/video/process", processDirectUpload);
 
 router.post("/video/optimize", optimizeVideoQualities);
 router.get("/video/status/:videoId", getProgressStatus);
