@@ -341,30 +341,45 @@ export default function AdminDashboard() {
     setSessionError('');
 
     try {
-      const formData = new FormData();
-      formData.append('title', newSessionTitle);
-      formData.append('description', newSessionDesc);
-      formData.append('startTime', newSessionStart);
-      formData.append('endTime', newSessionEnd);
-      formData.append('recordedVideo', newSessionRecordedVideo);
-      formData.append('autoGenerateZoom', String(isZoomActive && autoGenerateZoom));
+d3      let requestBody: FormData | string;
+      let requestHeaders: Record<string, string> = {
+        Authorization: `Bearer ${session.token}`
+      };
 
-      if (!isZoomActive || !autoGenerateZoom) {
-        formData.append('liveLink', newSessionLiveLink);
-      }
+      if (newSessionFiles && newSessionFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('title', newSessionTitle);
+        formData.append('description', newSessionDesc);
+        formData.append('startTime', newSessionStart);
+        formData.append('endTime', newSessionEnd);
+        formData.append('recordedVideo', newSessionRecordedVideo);
+        formData.append('autoGenerateZoom', String(isZoomActive && autoGenerateZoom));
 
-      if (newSessionFiles) {
+        if (!isZoomActive || !autoGenerateZoom) {
+          formData.append('liveLink', newSessionLiveLink);
+        }
+
         for (let i = 0; i < newSessionFiles.length; i++) {
           formData.append('pdfs', newSessionFiles[i]);
         }
+        requestBody = formData;
+      } else {
+        requestHeaders['Content-Type'] = 'application/json';
+        requestBody = JSON.stringify({
+          title: newSessionTitle,
+          description: newSessionDesc,
+          startTime: newSessionStart,
+          endTime: newSessionEnd,
+          recordedVideo: newSessionRecordedVideo,
+          autoGenerateZoom: isZoomActive && autoGenerateZoom,
+          liveLink: (!isZoomActive || !autoGenerateZoom) ? newSessionLiveLink : undefined
+        });
       }
 
       const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/sessions`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.token}`
-        },
-        body: formData
+        headers: requestHeaders,
+        body: requestBody
       });
 
       const data = await res.json();

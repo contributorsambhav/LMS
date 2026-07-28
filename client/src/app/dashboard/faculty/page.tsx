@@ -524,29 +524,44 @@ export default function FacultyDashboard() {
     setSessionError('');
 
     try {
-      const formData = new FormData();
-      formData.append('title', newSessionTitle);
-      formData.append('description', newSessionDesc);
-      formData.append('startTime', newSessionStart);
-      formData.append('endTime', newSessionEnd);
-      formData.append('autoGenerateZoom', String(autoGenerateZoom));
-      if (!autoGenerateZoom) {
-        formData.append('liveLink', newSessionLiveLink);
-      }
-      formData.append('recordedVideo', newSessionRecordedVideo);
+      let requestBody: FormData | string;
+      let requestHeaders: Record<string, string> = {
+        Authorization: `Bearer ${session.token}`
+      };
 
-      if (newSessionFiles) {
+      if (newSessionFiles && newSessionFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('title', newSessionTitle);
+        formData.append('description', newSessionDesc);
+        formData.append('startTime', newSessionStart);
+        formData.append('endTime', newSessionEnd);
+        formData.append('autoGenerateZoom', String(autoGenerateZoom));
+        if (!autoGenerateZoom) {
+          formData.append('liveLink', newSessionLiveLink);
+        }
+        formData.append('recordedVideo', newSessionRecordedVideo);
+
         for (let i = 0; i < newSessionFiles.length; i++) {
           formData.append('pdfs', newSessionFiles[i]);
         }
+        requestBody = formData;
+      } else {
+        requestHeaders['Content-Type'] = 'application/json';
+        requestBody = JSON.stringify({
+          title: newSessionTitle,
+          description: newSessionDesc,
+          startTime: newSessionStart,
+          endTime: newSessionEnd,
+          autoGenerateZoom,
+          liveLink: !autoGenerateZoom ? newSessionLiveLink : undefined,
+          recordedVideo: newSessionRecordedVideo
+        });
       }
 
       const res = await fetch(`${API_BASE_URL}/api/courses/${selectedCourse._id}/sessions`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.token}`
-        },
-        body: formData
+        headers: requestHeaders,
+        body: requestBody
       });
 
       const data = await res.json();
