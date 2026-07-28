@@ -256,12 +256,14 @@ export const oauthLogin = async (req: Request, res: Response) => {
           return res.status(400).json({ message: "An institute selection is required to register." });
         }
 
+        const isFaculty = role === 'Faculty';
         user = new User({
           name,
           email,
           password: dummyPassword,
           role,
-          status: instituteId ? 'Pending' : 'Approved',
+          status: (instituteId && !isFaculty) ? 'Pending' : 'Approved',
+          affiliationStatus: (instituteId && isFaculty) ? 'Pending' : 'Unaffiliated',
           instituteId: instituteId,
           phoneNumber: details.phoneNumber,
           address: details.address
