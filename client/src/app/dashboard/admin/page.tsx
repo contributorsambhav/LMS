@@ -210,17 +210,19 @@ export default function AdminDashboard() {
     }
   };
 
+  const loadRazorpay = () => {
+    return new Promise<boolean>((resolve) => {
+      if (typeof window !== 'undefined' && (window as any).Razorpay) return resolve(true);
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    document.body.appendChild(script);
-    
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
+    loadRazorpay();
   }, []);
 
   useEffect(() => {
@@ -884,26 +886,30 @@ export default function AdminDashboard() {
                     if(finalRechargeAmount <= 0) return toast.error('Invalid amount for recharge');
                     
                     try {
-                      const orderRes = await fetch(`${API_BASE_URL}/api/auth/create-order`, {
+                      const orderRes = await fetch(`${API_BASE_URL}/api/admin/create-order`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session?.token}`
+                          },
                           body: JSON.stringify({ amount: finalRechargeAmount, promoCode: discountPercent > 0 ? promoCode : undefined })
                       });
                       
                       if (!orderRes.ok) {
-                          return toast.error("Failed to initialize payment.");
+                          const errData = await orderRes.json().catch(() => ({}));
+                          return toast.error(errData.message || "Failed to initialize payment.");
                       }
                       
                       const order = await orderRes.json();
                       const discountedPrice = finalRechargeAmount - (finalRechargeAmount * discountPercent / 100);
                       
                       const options = {
-                          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || order.key || 'rzp_test_THoeY1eXASp32Z',
                           amount: order.amount,
-                          currency: order.currency,
+                          currency: order.currency || "INR",
                           name: "LumenLMS Wallet Recharge",
                           description: `Adding ₹${finalRechargeAmount} to Wallet`,
-                          order_id: order.id,
+                          order_id: order.id || order.orderId,
                           handler: async function (response: any) {
                               toast.info("Verifying payment...");
                               try {
@@ -929,8 +935,12 @@ export default function AdminDashboard() {
                                     setPromoCode("");
                                     setDiscountPercent(0);
                                     setRechargeAmount("");
+                                    if (session?.token) {
+                                      await fetchCourses(session.token);
+                                    }
                                 } else {
-                                    toast.error("Payment verification failed.");
+                                    const err = await verifyRes.json().catch(() => ({}));
+                                    toast.error(err.message || "Payment verification failed.");
                                 }
                               } catch(e) {
                                 toast.error("Error verifying payment.");

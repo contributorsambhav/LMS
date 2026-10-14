@@ -587,6 +587,7 @@ export const createOnboardingOrder = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       orderId: order.id,
+      id: order.id,
       amount: order.amount,
       currency: order.currency
     });
@@ -595,3 +596,50 @@ export const createOnboardingOrder = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Failed to create onboarding payment order." });
   }
 };
+
+export const createOrder = async (req: Request, res: Response) => {
+  try {
+    const { amount, promoCode } = req.body;
+    const finalAmount = parseFloat(amount);
+
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      return res.status(400).json({ message: "Invalid amount specified." });
+    }
+
+    let amountToCharge = finalAmount;
+
+    if (promoCode) {
+      const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+      if (promo) {
+        const discountAmount = (finalAmount * promo.discountPercentage) / 100;
+        amountToCharge = Math.max(0, finalAmount - discountAmount);
+      }
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID || "",
+      key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+    });
+
+    const options = {
+      amount: Math.round(amountToCharge * 100),
+      currency: "INR",
+      receipt: `rcpt_ord_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    if (!order) return res.status(500).json({ message: "Error creating Razorpay order" });
+
+    return res.status(200).json({
+      id: order.id,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID || ""
+    });
+  } catch (error: any) {
+    console.error("Razorpay create order error:", error);
+    return res.status(500).json({ message: error?.message || "Failed to create payment order." });
+  }
+};
+

@@ -10,6 +10,7 @@ import { Transaction } from "../models/Transaction";
 import { PromoCode } from "../models/PromoCode";
 import { Plan } from "../models/Plan";
 import crypto from "crypto";
+import Razorpay from "razorpay";
 
 // Helper to generate unique 6-character alphanumeric codes
 const generateUniqueCode = async (): Promise<string> => {
@@ -449,6 +450,59 @@ export const updateInstituteProfile = async (req: AuthenticatedRequest, res: Res
   }
 };
 
+export const createRechargeOrder = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const instituteId = req.user?.instituteId;
+    if (!instituteId) {
+      return res.status(403).json({ message: "Access denied: Institute Admin is not linked to an Institute." });
+    }
+
+    const { amount, promoCode } = req.body;
+    const rechargeAmount = parseFloat(amount);
+
+    if (isNaN(rechargeAmount) || rechargeAmount <= 0) {
+      return res.status(400).json({ message: "Invalid recharge amount specified." });
+    }
+
+    let amountToCharge = rechargeAmount;
+
+    if (promoCode) {
+      const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+      if (promo) {
+        const discountAmount = (rechargeAmount * promo.discountPercentage) / 100;
+        amountToCharge = Math.max(0, rechargeAmount - discountAmount);
+      }
+    }
+
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID || "",
+      key_secret: process.env.RAZORPAY_KEY_SECRET || "",
+    });
+
+    const options = {
+      amount: Math.round(amountToCharge * 100), // Razorpay expects amount in paise
+      currency: "INR",
+      receipt: `rcpt_rech_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    if (!order) {
+      return res.status(500).json({ message: "Failed to create Razorpay order." });
+    }
+
+    return res.status(200).json({
+      id: order.id,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID || ""
+    });
+  } catch (error: any) {
+    console.error("Create recharge order error:", error);
+    return res.status(500).json({ message: error?.message || "Failed to create recharge order." });
+  }
+};
+
 export const verifyRecharge = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const instituteId = req.user?.instituteId;
@@ -477,7 +531,7 @@ export const verifyRecharge = async (req: AuthenticatedRequest, res: Response) =
       return res.status(404).json({ message: "Institute not found." });
     }
 
-    institute.walletBalance += Number(amount);
+    institute.walletBalance = (institute.walletBalance || 0) + Number(amount);
     await institute.save();
     
     await Transaction.create({

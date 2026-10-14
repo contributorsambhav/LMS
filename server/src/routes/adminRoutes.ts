@@ -13,6 +13,7 @@ import {
   updateInstituteProfile,
   getRoster,
   getPendingUsers,
+  createRechargeOrder,
   verifyRecharge,
   getTransactions,
   validatePromoCode,
@@ -35,6 +36,7 @@ router.get("/courses", getCourses);
 router.get("/institute", getInstituteProfile);
 router.patch("/institute", updateInstituteProfile);
 router.get("/plans", getPlans);
+router.post("/create-order", createRechargeOrder);
 router.post("/verify-recharge", verifyRecharge);
 router.get("/transactions", getTransactions);
 router.post("/validate-promo", validatePromoCode);
