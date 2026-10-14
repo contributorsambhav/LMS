@@ -886,13 +886,12 @@ export default function AdminDashboard() {
                     if(finalRechargeAmount <= 0) return toast.error('Invalid amount for recharge');
                     
                     try {
-                      const orderRes = await fetch(`${API_BASE_URL}/api/admin/create-order`, {
+                      const orderRes = await fetch(`${API_BASE_URL}/api/auth/onboarding-order`, {
                           method: 'POST',
                           headers: { 
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${session?.token}`
+                            'Content-Type': 'application/json'
                           },
-                          body: JSON.stringify({ amount: finalRechargeAmount, promoCode: discountPercent > 0 ? promoCode : undefined })
+                          body: JSON.stringify({ promoCode: discountPercent > 0 ? promoCode : undefined })
                       });
                       
                       if (!orderRes.ok) {
